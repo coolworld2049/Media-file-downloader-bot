@@ -8,6 +8,7 @@ VK_APP_ID = config('VK_APP_ID', default='')
 VK_TOKEN = config('VK_TOKEN', default='')
 VK_ALBUM_ID = config('VK_ALBUM_ID', default='')
 
+
 def get_photo_data(offset=0, count=100):
     api = requests.get("https://api.vk.com/method/photos.getAll", params={
         'owner_id': VK_ALBUM_ID,
@@ -17,8 +18,8 @@ def get_photo_data(offset=0, count=100):
         'photo_sizes': 0,
         'v': 5.131
     })
-#    with open("photos data", "w") as write_file:
-#        json.dump(json.loads(api.text)["response"], write_file, indent=4)
+    #    with open("photos data", "w") as write_file:
+    #        json.dump(json.loads(api.text)["response"], write_file, indent=4)
 
     return json.loads(api.text)
 
@@ -44,5 +45,5 @@ def download_photo():
 
 
 if __name__ == "__main__":
-    print(VK_APP_ID,VK_TOKEN,VK_ALBUM_ID)
-    #download_photo()
+    print(VK_APP_ID, VK_TOKEN, VK_ALBUM_ID)
+    download_photo()
