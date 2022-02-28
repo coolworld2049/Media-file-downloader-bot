@@ -5,6 +5,7 @@ import requests
 from multiprocessing import Process
 from decouple import config
 
+
 VK_APP_ID = config("VK_APP_ID", default="")
 VK_TOKEN = config("VK_TOKEN", default="")
 VK_ALBUM_ID = config("VK_ALBUM_ID", default="")
