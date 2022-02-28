@@ -1,16 +1,48 @@
-# This is a sample Python script.
+import json
+import random
+import time
+import requests
+from decouple import config
 
-# Press Shift+F10 to execute it or replace it with your code.
-# Press Double Shift to search everywhere for classes, files, tool windows, actions, and settings.
+VK_APP_ID = config('VK_APP_ID', default='')
+VK_TOKEN = config('VK_TOKEN', default='')
+VK_ALBUM_ID = config('VK_ALBUM_ID', default='')
+
+def get_photo_data(offset=0, count=100):
+    api = requests.get("https://api.vk.com/method/photos.getAll", params={
+        'owner_id': VK_ALBUM_ID,
+        'access_token': VK_TOKEN,
+        'offset': offset,
+        'count_photos': count,
+        'photo_sizes': 0,
+        'v': 5.131
+    })
+#    with open("photos data", "w") as write_file:
+#        json.dump(json.loads(api.text)["response"], write_file, indent=4)
+
+    return json.loads(api.text)
 
 
-def print_hi(name):
-    # Use a breakpoint in the code line below to debug your script.
-    print(f'Hi, {name}')  # Press Ctrl+F8 to toggle the breakpoint.
+def download_photo():
+    data = get_photo_data()
+    count = 100
+    i = 0
+    while i <= data["response"]["count"]:
+        if i != 0:
+            data = get_photo_data(offset=i, count=count)
+
+        for photos in data["response"]["items"]:
+            photo_url = photos["sizes"][-1]["url"]
+            filename = random.randint(15487, 546864)
+            time.sleep(0.1)
+            api = requests.get(photo_url)
+
+            with open(f"Saved photo/{filename}" + ".jpg", "wb") as write_file:
+                write_file.write(api.content)
+        i += count
+        print(i)
 
 
-# Press the green button in the gutter to run the script.
-if __name__ == '__main__':
-    print_hi('PyCharm')
-
-# See PyCharm help at https://www.jetbrains.com/help/pycharm/
+if __name__ == "__main__":
+    print(VK_APP_ID,VK_TOKEN,VK_ALBUM_ID)
+    #download_photo()
