@@ -35,7 +35,7 @@ def download_photo():
     data = get_photo_data()
     count = 1
     i = 0
-    while i <= data["response"]["count"]:
+    while i <= 7:
         if i != 0:
             data = get_photo_data(offset=i, count=count)
 
@@ -43,6 +43,7 @@ def download_photo():
             photo_url = photos["sizes"][-1]["url"]
             filename = random.randint(1153, 546864)
             try:
+                time.sleep(0.1)
                 api = requests.get(photo_url)
                 with open(f"Saved photo/{filename}" + ".jpg", "wb") as write_file:
                     write_file.write(api.content)
