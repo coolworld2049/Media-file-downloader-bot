@@ -2,11 +2,12 @@ import json
 import random
 import time
 import requests
+from multiprocessing import Process
 from decouple import config
 
-VK_APP_ID = config('VK_APP_ID', default='')
-VK_TOKEN = config('VK_TOKEN', default='')
-VK_ALBUM_ID = config('VK_ALBUM_ID', default='')
+VK_APP_ID = config("VK_APP_ID", default="")
+VK_TOKEN = config("VK_TOKEN", default="")
+VK_ALBUM_ID = config("VK_ALBUM_ID", default="")
 
 
 def get_photo_data(offset=0, count=100):
@@ -45,5 +46,4 @@ def download_photo():
 
 
 if __name__ == "__main__":
-    print(VK_APP_ID, VK_TOKEN, VK_ALBUM_ID)
     download_photo()
