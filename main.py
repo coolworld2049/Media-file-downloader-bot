@@ -3,12 +3,11 @@ import random
 import time
 import requests
 from multiprocessing import Process
-from decouple import config
+from decouple import config, Csv
 
-
-VK_APP_ID = config("VK_APP_ID", default="")
-VK_TOKEN = config("VK_TOKEN", default="")
-VK_ALBUM_ID = config("VK_ALBUM_ID", default="")
+VK_APP_ID = config('VK_APP_ID', default='')
+VK_TOKEN = config('VK_TOKEN', default='')
+VK_ALBUM_ID = config('VK_ALBUM_ID', default='')
 
 
 def get_photo_data(offset=0, count=100):
