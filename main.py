@@ -1,13 +1,17 @@
+import configparser
 import json
 import random
 import time
 import requests
+import configparser
 from multiprocessing import Process
-from decouple import config, Csv
 
-VK_APP_ID = config('VK_APP_ID', default='')
-VK_TOKEN = config('VK_TOKEN', default='')
-VK_ALBUM_ID = config('VK_ALBUM_ID', default='')
+config = configparser.ConfigParser()
+config.read('config.ini')
+
+VK_APP_ID = config['VK_ACC_DATA']['VK_APP_ID']
+VK_TOKEN = config['VK_ACC_DATA']['VK_TOKEN']
+VK_ALBUM_ID = config['VK_ACC_DATA']['VK_ALBUM_ID']
 
 
 def get_photo_data(offset=0, count=100):
