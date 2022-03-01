@@ -35,7 +35,7 @@ def download_photo():
     data = get_photo_data()
     count = 1
     i = 0
-    while i <= 7:
+    while i <= data["response"]["count"]:
         if i != 0:
             data = get_photo_data(offset=i, count=count)
 
