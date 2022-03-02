@@ -49,7 +49,7 @@ def download_photo():
                     write_file.write(api.content)
                 i += 1
                 print(i)
-            except:
+            except requests.exceptions:
                 time.sleep(0.5)
                 continue
 
@@ -60,6 +60,30 @@ def process_priority():
     win32process.SetPriorityClass(handle, win32process.REALTIME_PRIORITY_CLASS)
 
 
+def start():
+    try:
+        print("Enter your vk token: ")
+        config['VK_ACC_DATA']['VK_TOKEN'].__setattr__('VK_TOKEN', input())
+        print("Enter your album id: ")
+        config['VK_ACC_DATA']['VK_ALBUM_ID'].__setattr__('VK_ALBUM_ID', input())
+
+    except IOError:
+        print("IOError: Invalid data format")
+
+    try:
+        print("\tNumber of photos: " + get_photo_data()["response"]["items"])
+        print("Start download [Y/n]:")
+        dwn = input().__str__()
+
+        if dwn.__contains__("Y" or "y"):
+            download_photo()
+        else:
+            print("Exit")
+    except:
+        print("Error -> Update token")
+        start()
+
+
 if __name__ == "__main__":
     process_priority()
-    download_photo()
+    start()
