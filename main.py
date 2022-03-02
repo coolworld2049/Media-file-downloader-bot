@@ -6,6 +6,7 @@ import win32api
 import win32process
 import win32con
 import requests
+import webbrowser
 
 config = configparser.ConfigParser()
 config.read('config.ini')
@@ -61,27 +62,34 @@ def process_priority():
 
 
 def start():
+    oAuth_link = f"https://oauth.vk.com/authorize?client_id={VK_APP_ID}&display=page&redirect_uri=https://oauth.vk" \
+                 f".com/blank.html&scope=photos&response_type=token&v=5.131 "
+
+    webbrowser.open_new_tab(oAuth_link)
+
     try:
-        print("Enter your vk token: ")
-        config['VK_ACC_DATA']['VK_TOKEN'].__setattr__('VK_TOKEN', input())
+        print("Enter your access_token: ")
+        config.set("VK_ACC_DATA", "VK_TOKEN", input())
+        config.write(open("config.ini", "w"))
+
         print("Enter your album id: ")
-        config['VK_ACC_DATA']['VK_ALBUM_ID'].__setattr__('VK_ALBUM_ID', input())
+        config.set("VK_ACC_DATA", "VK_ALBUM_ID", input())
+        config.write(open("config.ini", "w"))
 
     except IOError:
         print("IOError: Invalid data format")
 
     try:
-        print("\tNumber of photos: " + get_photo_data()["response"]["items"])
         print("Start download [Y/n]:")
         dwn = input().__str__()
 
         if dwn.__contains__("Y" or "y"):
             download_photo()
+            print()
         else:
             print("Exit")
-    except:
-        print("Error -> Update token")
-        start()
+    except BaseException.args:
+        print(BaseException.args)
 
 
 if __name__ == "__main__":
