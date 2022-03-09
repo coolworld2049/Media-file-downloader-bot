@@ -16,7 +16,7 @@ VK_TOKEN = config['VK_ACC_DATA']['VK_TOKEN']
 VK_ALBUM_ID = config['VK_ACC_DATA']['VK_ALBUM_ID']
 
 
-def get_photo_data(offset=0, count=0):
+def get_all(offset=0, count=0):
     api = requests.get("https://api.vk.com/method/photos.getAll", params={
         'owner_id': VK_ALBUM_ID,
         'access_token': VK_TOKEN,
@@ -33,12 +33,13 @@ def get_photo_data(offset=0, count=0):
 
 
 def download_photo():
-    data = get_photo_data()
+    data = get_all()
     count = 1
+    items_count = data["response"]["count"]
     i = 0
     while i <= data["response"]["count"]:
         if i != 0:
-            data = get_photo_data(offset=i, count=count)
+            data = get_all(offset=i, count=count)
 
         for photos in data["response"]["items"]:
             photo_url = photos["sizes"][-1]["url"]
@@ -49,7 +50,7 @@ def download_photo():
                 with open(f"Saved photo/{filename}" + ".jpg", "wb") as write_file:
                     write_file.write(api.content)
                 i += 1
-                print(i)
+                print(f"{i}/{items_count}")
             except requests.exceptions:
                 time.sleep(0.5)
                 continue
@@ -85,7 +86,8 @@ def start():
 
         if dwn.__contains__("Y" or "y"):
             download_photo()
-            print()
+            print("...")
+
         else:
             print("Exit")
     except BaseException.args:
