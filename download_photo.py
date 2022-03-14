@@ -4,6 +4,7 @@ import time
 import random
 import requests
 
+
 config = configparser.ConfigParser()
 config.read('config.ini')
 
@@ -47,5 +48,3 @@ def save_photo():
                 time.sleep(0.5)
                 continue
 
-
-terminate = True

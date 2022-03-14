@@ -9,10 +9,10 @@ import webbrowser
 
 from download_photo import save_photo
 from download_docs import save_docs
+from pathlib import Path
 
 # variables
 vk_app_id = 8090088
-terminate = False
 
 # storage conf data
 config = configparser.ConfigParser()
@@ -22,6 +22,10 @@ config['VK_ACC_DATA'] = {'vk_app_id': vk_app_id,
                          'vk_user_id': ''}
 config.write(open("config.ini", "w"))
 
+# storage downloaded files
+Path(os.curdir + "/Saved photos").mkdir(parents=True, exist_ok=True, mode=0o666)
+Path(os.curdir + "/Saved docs").mkdir(parents=True, exist_ok=True, mode=0o666)
+
 # .py priority
 pid = win32api.GetCurrentProcessId()
 handle = win32api.OpenProcess(win32con.PROCESS_ALL_ACCESS, True, pid)
@@ -29,7 +33,6 @@ win32process.SetPriorityClass(handle, win32process.REALTIME_PRIORITY_CLASS)
 
 
 def start_prog():
-
     try:
         scopes_str = "photos,docs"
 
@@ -72,13 +75,5 @@ def start_prog():
     except BaseException.args:
         print(BaseException.args)"""
 
-
-def terminate_prog():
-    if os.path.exists("config.ini") or os.path.exists("docs data.json") or os.path.exists("photos data.json"):
-        os.remove("config.ini") or os.remove("docs data.json") or os.remove("photos data.json")
-
-
 if __name__ == "__main__":
     start_prog()
-    if terminate:
-        terminate_prog()
