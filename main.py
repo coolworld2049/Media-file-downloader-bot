@@ -50,7 +50,7 @@ def start_prog():
             print("Enter your user_id: ")
             config.set("VK_ACC_DATA", "vk_user_id", input())
             config.write(open("config.ini", "w"))
-            time.sleep(0.5)
+            time.sleep(0.9)
             save_photo()
 
         if scope_type == 2:
