@@ -4,11 +4,12 @@ import time
 import random
 import requests
 
+
 config = configparser.ConfigParser()
-config.read('config.ini')
 
 
 def docs_get(count=0):
+    config.read('config.ini')
     api = requests.get("https://api.vk.com/method/docs.get", params={
         'access_token': config['VK_ACC_DATA']['vk_token'],
         'count': count,
@@ -46,5 +47,3 @@ def save_docs():
                 time.sleep(0.5)
                 continue
 
-
-terminate = True
