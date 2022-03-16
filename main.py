@@ -8,8 +8,11 @@ import win32process
 import win32con
 import webbrowser
 
-from download_photo import save_photo
-from download_docs import save_docs
+from aiogram.utils import executor
+
+from telegram_api.server import dp
+from vk_api.download_photo import save_photo
+from vk_api.download_docs import save_docs
 from pathlib import Path
 
 # variables
@@ -62,29 +65,20 @@ def start_prog():
             config.write(open("config.ini", "w"))
             time.sleep(0.9)
             save_photo()  # def
-            path_data_photo = os.path.abspath("Saved docs")
+            path_data_photo = os.path.abspath("Saved data/Saved docs")
             print(f"\nLoading is complete. The downloaded files are located at {path_data_photo}")
 
         if scope_type == 2:
             save_docs()  # def
-            path_data_docs = os.path.abspath("Saved docs")
+            path_data_docs = os.path.abspath("Saved data/Saved docs")
             print(f"\nLoading is complete. The downloaded files are located at {path_data_docs}")
 
     except IOError:
         print(BaseException.args)
 
 
-"""def download(func):
-    try:
-        print("Start download [Y/n]:")
-        if input().__str__().__contains__("Y" or "y"):
-            func()
-            print("Downloading...")
-
-        else:
-            print("Exit")
-    except BaseException.args:
-        print(BaseException.args)"""
+def start_telegram_bot():
+    executor.start_polling(dp, skip_updates=True)
 
 
 def signal_handler():
@@ -92,17 +86,9 @@ def signal_handler():
     sys.exit(0)
 
 
-def rm_temp_files():
-    if os.path.exists("config.ini"):
-        os.remove("config.ini")
-
-
 if __name__ == "__main__":
     try:
-        start_prog()
-        rm_temp_files()
+        # start_prog()
+        start_telegram_bot()
     except KeyboardInterrupt:
-        rm_temp_files()
-        print('Exit')
-        time.sleep(0.5)
-        sys.exit()
+        signal_handler()
