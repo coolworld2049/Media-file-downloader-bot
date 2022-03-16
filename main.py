@@ -1,5 +1,6 @@
 import configparser
 import os
+import sys
 import time
 
 import win32api
@@ -20,7 +21,7 @@ config.read('config.ini')
 config['VK_ACC_DATA'] = {'vk_app_id': vk_app_id,
                          'vk_token': '',
                          'vk_user_id': ''}
-config.write(open("config.ini", "w"))
+config.write(open("config.ini", "w+"))
 
 # storage downloaded files
 Path(os.curdir + "/Saved photos").mkdir(parents=True, exist_ok=True, mode=0o666)
@@ -35,29 +36,39 @@ win32process.SetPriorityClass(handle, win32process.REALTIME_PRIORITY_CLASS)
 def start_prog():
     try:
         scopes_str = "photos,docs"
-
-        print("Enter your access_token(copy from the address bar in the window that opens):")
         oAuth_link = f"https://oauth.vk.com/authorize?client_id={vk_app_id}&display=page&redirect_uri=https://oauth.vk.com/blank.html" \
                      f".com/blank.html&scope={scopes_str}&response_type=token&v=5.131"
         webbrowser.open_new_tab(oAuth_link)
 
-        config.set("VK_ACC_DATA", "vk_token", input())
+        config.set("VK_ACC_DATA", "vk_token", input("Enter your access_token(copy from the address bar"
+                                                    " in the window that opens):\n"))
         config.write(open("config.ini", "w"))
 
-        print("Choose what you want to download(№):"
-              "\n1.photos",
-              "\n2.docs")
+        print("\nChoose what you want to download(№):"
+              "\n\t1.photos",
+              "\n\t2.docs")
         scope_type = int(input())
 
         if scope_type == 1:
-            print("Enter your user_id: ")
-            config.set("VK_ACC_DATA", "vk_user_id", input())
+            while True:
+                input_data = input("\nEnter your user_id:\n")
+                if not input_data.isnumeric():
+                    print("You didn't enter a number. Try again:")
+                elif not 100000000 <= int(input_data) <= 999999999:
+                    print("Your number is out of range. Try again")
+                else:
+                    break
+            config.set("VK_ACC_DATA", "vk_user_id", input_data)
             config.write(open("config.ini", "w"))
             time.sleep(0.9)
-            save_photo()
+            save_photo()  # def
+            path_data_photo = os.path.abspath("Saved docs")
+            print(f"\nLoading is complete. The downloaded files are located at {path_data_photo}")
 
         if scope_type == 2:
-            save_docs()
+            save_docs()  # def
+            path_data_docs = os.path.abspath("Saved docs")
+            print(f"\nLoading is complete. The downloaded files are located at {path_data_docs}")
 
     except IOError:
         print(BaseException.args)
@@ -75,5 +86,23 @@ def start_prog():
     except BaseException.args:
         print(BaseException.args)"""
 
+
+def signal_handler():
+    print('You pressed Ctrl+C!')
+    sys.exit(0)
+
+
+def rm_temp_files():
+    if os.path.exists("config.ini"):
+        os.remove("config.ini")
+
+
 if __name__ == "__main__":
-    start_prog()
+    try:
+        start_prog()
+        rm_temp_files()
+    except KeyboardInterrupt:
+        rm_temp_files()
+        print('Exit')
+        time.sleep(0.5)
+        sys.exit()
