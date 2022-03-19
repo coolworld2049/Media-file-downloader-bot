@@ -88,7 +88,7 @@ def signal_handler():
 
 if __name__ == "__main__":
     try:
-        # start_prog()
-        start_telegram_bot()
+        start_prog()
+        # start_telegram_bot()
     except KeyboardInterrupt:
         signal_handler()
