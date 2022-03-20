@@ -15,9 +15,7 @@ idna==3.3
 multidict==6.0.2
 platformdirs==2.5.1
 psycopg2==2.9.3
-pypiwin32==223
 pytz==2021.3
-pywin32==303
 requests==2.27.1
 six==1.16.0
 sqlparse==0.4.2

@@ -1,5 +1,6 @@
 import configparser
 import json
+import os
 import time
 import random
 import requests
@@ -88,3 +89,30 @@ def save_docs():
                 print("Server connection")
                 time.sleep(0.5)
                 continue
+
+
+def start(scope_type: str):
+    config = configparser.ConfigParser()
+
+    if scope_type == 'photos':
+        while True:
+            what_download = input("\nEnter your user_id:\n")
+            if not what_download.isnumeric():
+                print("You didn't enter a number. Try again:")
+            elif not 100000000 <= int(what_download) <= 999999999:
+                print("Your number is out of range. Try again")
+            else:
+                break
+        config.set("VK_ACC_DATA", "vk_user_id", what_download)
+        config.write(open("config.ini", "w"))
+        time.sleep(0.5)
+        save_photo()  # def
+        path_data_photo = os.path.abspath("Saved data/Saved docs")
+        return f"\nLoading is complete. " \
+               f"The downloaded files are located at {path_data_photo}"
+
+    elif scope_type == 'docs':
+        save_docs()  # def
+        path_data_docs = os.path.abspath("Saved data/Saved docs")
+        return f"\nLoading is complete. " \
+               f"The downloaded files are located at {path_data_docs}"
