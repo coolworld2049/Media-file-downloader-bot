@@ -10,9 +10,8 @@ import webbrowser
 
 from aiogram.utils import executor
 
-from telegram_api.server import dp
-from vk_api.download_photo import save_photo
-from vk_api.download_docs import save_docs
+from telegram_bot.server import dp
+from social_nets.vk_api.download_from_vk import save_photo, save_docs
 from pathlib import Path
 
 # variables
@@ -78,7 +77,7 @@ def start_prog():
 
 
 def start_telegram_bot():
-    executor.start_polling(dp, skip_updates=True)
+    executor.start_polling(dp)
 
 
 def signal_handler():
@@ -88,7 +87,7 @@ def signal_handler():
 
 if __name__ == "__main__":
     try:
-        start_prog()
-        # start_telegram_bot()
+        # start_prog()
+        start_telegram_bot()
     except KeyboardInterrupt:
         signal_handler()
