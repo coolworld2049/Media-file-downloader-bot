@@ -6,6 +6,25 @@ import random
 import requests
 
 
+def get_scopes():
+    config = configparser.ConfigParser()
+    config.read('config.ini')
+
+    api = requests.get("https://api.vk.com/method/apps.getScopes", params={
+        'access_token': config['VK_ACC_DATA']['vk_token'],
+        'owner_id': 'user',
+        'v': 5.131
+    })
+    data = json.loads(api.text)
+    i = 0
+    while i <= data["response"]["count"]:
+        for names in data["response"]["items"]:
+            scopes_list: list = names["items"]["name"]
+            scopes_list.append(',')
+            i += 1
+    return scopes_list
+
+
 def get_all_photos(offset=0, count=0):
     config = configparser.ConfigParser()
     config.read('config.ini')

@@ -3,7 +3,11 @@ from os import getenv
 
 from aiogram import Bot, Dispatcher, types
 
+from social_nets.vk_api.download_from_vk import save_photo
 from telegram_bot.markup import inline_keyboard
+from telegram_bot.markup import inline_keyboard_album_list
+from telegram_bot.markup import inline_keyboard_scopes_list
+
 from social_nets.vk_api.auth import auth_user
 
 bot_token = getenv("BOT_TOKEN")
@@ -39,8 +43,16 @@ async def send_select(message: types.Message):
 
 
 @dp.callback_query_handler(lambda c: c.data == 'buttonVk')
-async def process_callback_button1(callback_query: types.CallbackQuery):
-    await bot.answer_callback_query(callback_query.id)
-    await bot.send_message(callback_query.from_user.id, "Enter your access_token(copy from the"
-                                                        " address bar in the window that opens):\n")
-    auth_user()
+async def callback_button_vk(callback_query: types.CallbackQuery):
+    ret_msg = auth_user()
+    await bot.send_message(callback_query.from_user.id, ret_msg)
+    await bot.send_message(callback_query.from_user.id, 'Выберите что необходимо скачать',
+                           reply_markup=inline_keyboard_scopes_list)
+
+
+@dp.callback_query_handler(lambda c: c.data == 'photos')
+async def callback_button_vk(callback_query: types.CallbackQuery):
+    await bot.send_message(callback_query.from_user.id,
+                           text='Список фотоальбомов, доступных для скачивания',
+                           reply_markup=inline_keyboard_album_list)
+    save_photo()

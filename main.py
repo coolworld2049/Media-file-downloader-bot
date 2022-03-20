@@ -1,5 +1,6 @@
 import os
 import sys
+from urllib.parse import urlparse, parse_qs
 
 from aiogram.utils import executor
 from telegram_bot.server import dp
