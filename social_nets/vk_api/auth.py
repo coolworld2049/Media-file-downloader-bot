@@ -6,7 +6,7 @@ import pyperclip
 
 
 # variables
-vk_app_id = 8090088
+vk_app_id = 8109852
 scopes: str = "friends,photos,video,notes,wall,docs"
 
 # storage file

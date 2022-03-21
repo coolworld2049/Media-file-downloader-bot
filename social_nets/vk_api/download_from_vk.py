@@ -1,13 +1,13 @@
-import configparser
 import json
 import os
 import time
 import random
 import requests
 
+from social_nets.vk_api.auth import config
+
 
 def get_scopes():
-    config = configparser.ConfigParser()
     config.read('config.ini')
 
     api = requests.get("https://api.vk.com/method/apps.getScopes", params={
@@ -25,11 +25,39 @@ def get_scopes():
     return scopes_list
 
 
-def get_by_id():
+def get_by_id(photo_id):
+    config.read('config.ini')
+
+    api = requests.get("https://api.vk.com/method/photos.getById", params={
+        'access_token': config['VK_ACC_DATA']['vk_token'],
+        'photos': config['VK_ACC_DATA']['user_id'] + "_" + photo_id,
+        'v': 5.131
+    })
+    return json.loads(api.text)
+
+
+def get_albums():
+    config.read('config.ini')
+
+    api = requests.get("https://api.vk.com/method/photos.getAlbums", params={
+        'access_token': config['VK_ACC_DATA']['vk_token'],
+        'v': 5.131
+    })
+    return json.loads(api.text)
+
+
+def get_albums_count():
+    config.read('config.ini')
+
+    api = requests.get("https://api.vk.com/method/photos.getAlbumsCount", params={
+        'user_id': int(config['VK_ACC_DATA']['vk_user_id']),
+        'access_token': config['VK_ACC_DATA']['vk_token'],
+        'v': 5.131
+    })
+    return json.loads(api.text)['response']
 
 
 def get_all_photos(offset=0, count=0):
-    config = configparser.ConfigParser()
     config.read('config.ini')
 
     api = requests.get("https://api.vk.com/method/photos.getAll", params={
@@ -40,15 +68,10 @@ def get_all_photos(offset=0, count=0):
         'photo_sizes': 0,
         'v': 5.131
     })
-
-    with open("photos data", "w") as write_file:
-        json.dump(json.loads(api.text)["response"], write_file, indent=4)
-        write_file.close()
     return json.loads(api.text)
 
 
 def docs_get(count=0):
-    config = configparser.ConfigParser()
     config.read('config.ini')
 
     api = requests.get("https://api.vk.com/method/docs.get", params={
@@ -56,12 +79,54 @@ def docs_get(count=0):
         'count': count,
         'v': 5.131
     })
-
-    with open("docs data.json", "w") as write_file:
-        json.dump(json.loads(api.text), write_file, indent=4)
-        write_file.close()
-
     return json.loads(api.text)
+
+
+def eliminate_repetitions(list1):
+    list2 = []
+    for item in list1:
+        if item not in list2:
+            list2.append(item)
+    return list2
+
+
+def albums_with_photos():
+    # получаем список id альбомов из списка всех фотографий - getAll
+    global album_id, final_album, album_and_photos
+    album_and_photos = []
+    photos = get_all_photos()
+    c = 0
+    while c <= photos["response"]["count"]:
+        album_and_photos.append(photos["response"]["items"][c]["album_id"])
+        c += 1
+    album_and_photos = eliminate_repetitions(album_and_photos)
+
+    # получаем список id всех альбомов аккаунта - getAlbums
+    albums_list = get_albums()
+    v = 0
+    while v <= albums_list["response"]["count"]:
+        album_id.append(albums_list["response"]["items"][v]["id"])
+        v += 1
+    album_and_photos = eliminate_repetitions(album_id)
+
+    # сопостовляем каждому альбому его фотографии
+    k = 0
+    m = 0
+    while k <= len(album_id):
+        while m <= len(album_and_photos):
+            if album_id[k] == album_and_photos[m]:
+                final_album.append([album_id[k]], [album_and_photos[m]])
+                k += 1
+                m -= 1
+
+    return final_album
+
+
+def save_by_id():
+    full_album = albums_with_photos()
+    for i in range(len(full_album)):
+        for j in range(len(full_album)):
+            print(full_album[i][j])
 
 
 def save_photo():
@@ -114,8 +179,6 @@ def save_docs():
 
 
 def start(scope_type: str):
-    config = configparser.ConfigParser()
-
     if scope_type == 'photos':
         while True:
             what_download = input("\nEnter your user_id:\n")

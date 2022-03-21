@@ -3,7 +3,7 @@ from os import getenv
 
 from aiogram import Bot, Dispatcher, types
 
-from social_nets.vk_api.download_from_vk import save_photo
+from social_nets.vk_api.download_from_vk import save_photo, save_by_id, albums_with_photos
 from telegram_bot.markup import inline_keyboard
 from telegram_bot.markup import inline_keyboard_album_list
 from telegram_bot.markup import inline_keyboard_scopes_list
@@ -52,7 +52,10 @@ async def callback_button_vk(callback_query: types.CallbackQuery):
 
 @dp.callback_query_handler(lambda c: c.data == 'photos')
 async def callback_button_vk(callback_query: types.CallbackQuery):
-    await bot.send_message(callback_query.from_user.id,
+    """await bot.send_message(callback_query.from_user.id,
                            text='Список фотоальбомов, доступных для скачивания',
-                           reply_markup=inline_keyboard_album_list)
+                           reply_markup=inline_keyboard_album_list)"""
+    albums_with_photos()
+    await bot.send_message(callback_query.from_user.id, 'test')
+
 

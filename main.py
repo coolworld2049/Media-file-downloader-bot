@@ -3,7 +3,6 @@ import sys
 
 from aiogram.utils import executor
 
-from social_nets.vk_api.auth import scopes
 from telegram_bot.server import dp
 from pathlib import Path
 
