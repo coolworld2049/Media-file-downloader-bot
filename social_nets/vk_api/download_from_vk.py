@@ -92,7 +92,6 @@ def eliminate_repetitions(list1):
 
 def albums_with_photos():
     # получаем список id альбомов из списка всех фотографий - getAll
-    global album_id, final_album, album_and_photos
     album_and_photos = []
     photo = get_all_photos()
     c = 0
@@ -100,24 +99,33 @@ def albums_with_photos():
         for photos in photo["response"]["items"]:
             album_and_photos.append(photos["album_id"])
             c += 1
+    tmp1 = eliminate_repetitions(album_and_photos)
+    album_and_photos.clear()
+    album_and_photos.append(tmp1)
 
     # получаем список id всех альбомов аккаунта - getAlbums
     albums_list = get_albums()
+    album_id = []
     v = 0
     while v <= albums_list["response"]["count"]:
         for albums in albums_list["response"]["items"]:
             album_id.append(albums["id"])
             v += 1
+    tmp2 = eliminate_repetitions(album_id)
+    album_and_photos.clear()
+    album_and_photos.append(tmp2)
 
     # сопостовляем каждому альбому его фотографии
+    final_album = []
     k = 0
     m = 0
     while k <= len(album_id):
         while m <= len(album_and_photos):
             if album_id[k] == album_and_photos[m]:
-                final_album.append([album_id[k]], [album_and_photos[m]])
-                k += 1
-                m -= 1
+                for data in photo["response"]["items"]:
+                    final_album.append([[album_id[k]], [album_and_photos[m]]])
+        k += 1
+        m -= 1
 
     return final_album
 

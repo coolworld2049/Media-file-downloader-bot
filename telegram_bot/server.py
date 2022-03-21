@@ -55,6 +55,7 @@ async def callback_button_vk(callback_query: types.CallbackQuery):
     """await bot.send_message(callback_query.from_user.id,
                            text='Список фотоальбомов, доступных для скачивания',
                            reply_markup=inline_keyboard_album_list)"""
+    await bot.send_message(callback_query.from_user.id, 'test')
     albums_with_photos()
 
 
