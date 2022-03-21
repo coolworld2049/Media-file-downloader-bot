@@ -20,6 +20,8 @@ config.write(open("config.ini", "w"))
 
 
 def auth_user():
+    config.read('config.ini')
+
     try:
         oAuth_link = f"https://oauth.vk.com/authorize?client_id={vk_app_id}&display=page&redirect_uri=https://oauth.vk.com/blank.html" \
                      f".com/blank.html&scope={scopes}&response_type=token&v=5.131"

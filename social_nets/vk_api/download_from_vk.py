@@ -94,20 +94,20 @@ def albums_with_photos():
     # получаем список id альбомов из списка всех фотографий - getAll
     global album_id, final_album, album_and_photos
     album_and_photos = []
-    photos = get_all_photos()
+    photo = get_all_photos()
     c = 0
-    while c <= photos["response"]["count"]:
-        album_and_photos.append(photos["response"]["items"][c]["album_id"])
-        c += 1
-    album_and_photos = eliminate_repetitions(album_and_photos)
+    while c <= photo["response"]["count"]:
+        for photos in photo["response"]["items"]:
+            album_and_photos.append(photos["album_id"])
+            c += 1
 
     # получаем список id всех альбомов аккаунта - getAlbums
     albums_list = get_albums()
     v = 0
     while v <= albums_list["response"]["count"]:
-        album_id.append(albums_list["response"]["items"][v]["id"])
-        v += 1
-    album_and_photos = eliminate_repetitions(album_id)
+        for albums in albums_list["response"]["items"]:
+            album_id.append(albums["id"])
+            v += 1
 
     # сопостовляем каждому альбому его фотографии
     k = 0
