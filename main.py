@@ -1,8 +1,9 @@
 import os
 import sys
-from urllib.parse import urlparse, parse_qs
 
 from aiogram.utils import executor
+
+from social_nets.vk_api.auth import scopes
 from telegram_bot.server import dp
 from pathlib import Path
 
@@ -23,5 +24,6 @@ def signal_handler():
 if __name__ == "__main__":
     try:
         start_telegram_bot()
+
     except KeyboardInterrupt:
         signal_handler()

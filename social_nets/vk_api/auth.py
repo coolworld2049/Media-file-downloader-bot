@@ -7,6 +7,7 @@ import pyperclip
 
 # variables
 vk_app_id = 8090088
+scopes: str = "friends,photos,video,notes,wall,docs"
 
 # storage file
 config = configparser.ConfigParser()
@@ -15,12 +16,11 @@ config['VK_ACC_DATA'] = {'vk_app_id': vk_app_id,
                          'vk_token': '',
                          'token_expires_in': '',
                          'vk_user_id': ''}
-config.write(open("config.ini", "w+"))
+config.write(open("config.ini", "w"))
 
 
 def auth_user():
     try:
-        scopes: str = "friends,photos,video,notes,wall,docs"
         oAuth_link = f"https://oauth.vk.com/authorize?client_id={vk_app_id}&display=page&redirect_uri=https://oauth.vk.com/blank.html" \
                      f".com/blank.html&scope={scopes}&response_type=token&v=5.131"
         webbrowser.open_new_tab(oAuth_link)

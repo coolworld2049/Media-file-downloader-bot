@@ -25,6 +25,9 @@ def get_scopes():
     return scopes_list
 
 
+def get_by_id():
+
+
 def get_all_photos(offset=0, count=0):
     config = configparser.ConfigParser()
     config.read('config.ini')
@@ -69,9 +72,9 @@ def save_photo():
     while i <= data["response"]["count"]:
         if i != 0:
             data = get_all_photos(offset=i, count=count)
-
         for photos in data["response"]["items"]:
             photo_url = photos["sizes"][-1]["url"]
+
             filename = random.randint(1153, 546864)
             try:
                 time.sleep(0.1)
