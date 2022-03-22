@@ -8,6 +8,7 @@ import pyperclip
 # variables
 vk_app_id = 8109852
 scopes: str = "friends,photos,video,notes,wall,docs"
+user_authorized: bool = False
 
 # storage file
 config = configparser.ConfigParser()
@@ -44,7 +45,9 @@ def auth_user():
         config.set("VK_ACC_DATA", "token_expires_in", expires_in[0])
         config.set("VK_ACC_DATA", "vk_user_id", user_id[0])
         config.write(open("config.ini", "w"))
+        user_authorized = True
         return 'Вы авторизованы'
 
     except BaseException as e:
         return f'Ошибка авторизации{e.args}'
+

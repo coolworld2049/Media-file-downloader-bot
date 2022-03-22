@@ -8,6 +8,7 @@ from social_nets.vk_api.auth import config
 
 
 def get_scopes():
+    scopes_list = []
     config.read('config.ini')
 
     api = requests.get("https://api.vk.com/method/apps.getScopes", params={
@@ -19,7 +20,7 @@ def get_scopes():
     i = 0
     while i <= data["response"]["count"]:
         for names in data["response"]["items"]:
-            scopes_list: list = names["items"]["name"]
+            scopes_list.append(names["items"]["name"])
             scopes_list.append(',')
             i += 1
     return scopes_list
@@ -82,58 +83,44 @@ def docs_get(count=0):
     return json.loads(api.text)
 
 
-def eliminate_repetitions(list1):
-    list2 = []
-    for item in list1:
-        if item not in list2:
-            list2.append(item)
-    return list2
-
-
 def albums_with_photos():
-    # получаем список id альбомов из списка всех фотографий - getAll
-    album_and_photos = []
+    # получаем список id альбома и id фотографии - getAll
     photo = get_all_photos()
+    album_and_photos = [[]]
     c = 0
     while c <= photo["response"]["count"]:
         for photos in photo["response"]["items"]:
-            album_and_photos.append(photos["album_id"])
+            album_and_photos.append([[photos["album_id"], photos["id"]]])  # [[album_id],[photo_id]]
             c += 1
-    tmp1 = eliminate_repetitions(album_and_photos)
-    album_and_photos.clear()
-    album_and_photos.append(tmp1)
+    return album_and_photos
 
-    # получаем список id всех альбомов аккаунта - getAlbums
-    albums_list = get_albums()
-    album_id = []
-    v = 0
-    while v <= albums_list["response"]["count"]:
-        for albums in albums_list["response"]["items"]:
-            album_id.append(albums["id"])
-            v += 1
-    tmp2 = eliminate_repetitions(album_id)
-    album_and_photos.clear()
-    album_and_photos.append(tmp2)
 
-    # сопостовляем каждому альбому его фотографии
-    final_album = []
-    k = 0
-    m = 0
-    while k <= len(album_id):
-        while m <= len(album_and_photos):
-            if album_id[k] == album_and_photos[m]:
-                for data in photo["response"]["items"]:
-                    final_album.append([[album_id[k]], [album_and_photos[m]]])
-        k += 1
-        m -= 1
-
-    return final_album
+def display_albums():
+    i = 0
+    json_data = get_albums()
+    albums_id_title = [[]]
+    albums_id = []
+    while i <= json_data["response"]["count"]:
+        for albums in json_data["response"]["items"]:
+            albums_id_title.append([albums["id"], albums["title"]])
+            albums_id.append(albums["id"])
+            i += 1
+    return albums_id
 
 
 def save_by_id():
+    albums_list = get_albums()
+    album_id_list = []
+
+    # получаем список id всех альбомов аккаунта - getAlbums
+    v = 0
+    while v <= albums_list["response"]["count"]:
+        for albums in albums_list["response"]["items"]:
+            album_id_list.append(albums["id"])  # [[album_id]]
+            v += 1
     full_album = albums_with_photos()
     for i in range(len(full_album)):
-        for j in range(len(full_album)):
+        for j in range(len(full_album[i])):
             print(full_album[i][j])
 
 
