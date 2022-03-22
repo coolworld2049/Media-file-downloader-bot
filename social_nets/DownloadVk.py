@@ -11,9 +11,8 @@ import requests
 from virtualenv.util.path import Path
 
 
-class DownloadVk(object):
-    def __init__(self, vk_app_id):
-        self.vk_app_id = vk_app_id
+class DownloadVk:
+    def __init__(self):
         self.vk_app_id = 8109852
         self.scopes = "friends,photos,video,notes,wall,docs"
         self.user_authorized = False
@@ -59,7 +58,7 @@ class DownloadVk(object):
             self.user_authorized = True
             return 'Вы авторизованы'
 
-        except BaseException as e:
+        except Exception as e:
             self.user_authorized = False
             return f'Ошибка авторизации{e.args}'
 
