@@ -1,5 +1,6 @@
 import json
 import logging
+import time
 from os import getenv
 
 from aiogram import Bot, Dispatcher, types
@@ -74,7 +75,7 @@ async def callback_select_album(callback_query: types.CallbackQuery):
     if downloadVk.user_authorized:
         album_list = downloadVk.display_albums()
         for a_id, title, count in album_list:
-            IK_albums_list.add(InlineKeyboardButton(f'{count}.'f'{title}', callback_data=str(a_id)))
+            IK_albums_list.add(InlineKeyboardButton(f'{count}.'f'{title} id: {a_id}', callback_data=str(a_id)))
             count += 1
         await bot.send_message(callback_query.from_user.id,
                                text='Список фотоальбомов, доступных для скачивания',
@@ -83,34 +84,13 @@ async def callback_select_album(callback_query: types.CallbackQuery):
         await bot.send_message(callback_query.from_user.id, text='Вы не авторизованы', )
 
 
-@dp.callback_query_handler(lambda c: c.data == '281821142')
+@dp.callback_query_handler(lambda c: c.data == '281175201')
 async def callback_select_album(callback_query: types.CallbackQuery):
     await bot.send_message(callback_query.from_user.id, text=f'Загрузка альбома {callback_query.data}')
     downloadVk.save_photo_by_id(int(callback_query.data))
+    # await bot.send_message(callback_query.from_user.id, text=f'{downloadVk.albums_with_photos()}')
 
 
 if __name__ == "__main__":
     executor.start_polling(dp)
 
-    """list1 = [[281821142, 457248715],
-             [281821751, 457248714],
-             [281175201, 457248684],
-             [281175201, 457248683],
-             [281175201, 457248677],
-             [281175201, 457248676],
-             [281175201, 457248675],
-             [281175201, 457248674],
-             [281175201, 457248662],
-             [281175201, 457248660],
-             [281175201, 457248659],
-             [281175201, 457248658],
-             [281175201, 457248657],
-             [281175201, 457248655],
-             [281175201, 457248653],
-             [281175201, 457248652],
-             [281175201, 457248650],
-             [281175201, 457248649]]
-
-    list2 = [[281821142],
-             [281821751],
-             [281175201]]"""

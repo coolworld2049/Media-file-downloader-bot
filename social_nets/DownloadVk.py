@@ -4,6 +4,7 @@ import os
 import random
 import time
 import webbrowser
+from collections import OrderedDict
 
 import pyautogui
 import pyperclip
@@ -12,10 +13,8 @@ from virtualenv.util.path import Path
 
 
 class DownloadVk:
-    count_photos: int
-
     def __init__(self):
-        self.vk_app_id = 8090088
+        self.vk_app_id = 8109852
         self.scopes = "friends,photos,video,notes,wall,docs"
         self.user_authorized = False
         self.config = configparser.ConfigParser()
@@ -116,7 +115,7 @@ class DownloadVk:
             'owner_id': int(self.config['VK_ACC_DATA']['vk_user_id']),
             'access_token': self.config['VK_ACC_DATA']['vk_token'],
             'offset': offset,
-            'count_photos': count,
+            'count': count,
             'photo_sizes': 0,
             'v': 5.131
         })
@@ -138,13 +137,15 @@ class DownloadVk:
 
     def albums_with_photos(self):
         # получаем список id альбома и id фотографии - getAll
-        photo = self.get_all_photos()
+        data = self.get_all_photos()
         album_id_photo_id = []
-        c = 0
-        while c <= photo["response"]["count"]:
-            for photos in photo["response"]["items"]:
-                album_id_photo_id.append([photos["album_id"], photos["id"]])
-                c += 1
+        count = 200
+        i = 0
+        while i <= data["response"]["count"]:
+            data = self.get_all_photos(offset=i, count=count)
+            for item in data["response"]["items"]:
+                album_id_photo_id.append([item["album_id"], item["id"]])
+            i += 200
         return album_id_photo_id
 
     def display_albums(self):
@@ -173,26 +174,30 @@ class DownloadVk:
 
     def save_photo_by_id(self, selected_album_id: int):
         global vk_api
-        albums_with_photos = self.albums_with_photos()
-        for i in range(len(albums_with_photos)):
-            if albums_with_photos[i][0] == selected_album_id:
-                ownerAndPhotoId = self.get_photos_by_id(int(albums_with_photos[i][1]))
+        ownerAndPhotoId_list = []
+        albums_with_photos_list = self.albums_with_photos()
 
-                filename = random.randint(1153, 546864)
+        for i in range(len(albums_with_photos_list)):
+            if albums_with_photos_list[i][0] == selected_album_id:
+                ownerAndPhotoId_list.append(albums_with_photos_list[i][1])
+
+        for i in range(len(ownerAndPhotoId_list)):
+            if albums_with_photos_list[i][0] == selected_album_id:
                 try:
-                    time.sleep(0.2)
+                    ownerAndPhotoId = self.get_photos_by_id(int(albums_with_photos_list[i][1]))
+                    time.sleep(0.1)
                     vk_api = requests.get(url=ownerAndPhotoId['response'][0]['sizes'][-1]['url'])
+                    time.sleep(0.1)
                     with open(
-                            f"C:/Users/R/PycharmProjects/Social-media-file-downloader/Saved photos/{filename}" + ".jpg",
-                            "wb") as write_file:
-                        write_file.write(vk_api.content)
-                    i += 1
-                    self.count_photos = i
-                    print(f"{i}/{len(ownerAndPhotoId)}")
+                            f"C:/Users/R/PycharmProjects/Social-media-file-downloader/Saved photos/{random.randint(1153, 546864)}" + ".jpg",
+                            "wb") as save_image:
+                        save_image.write(vk_api.content)
+                    print(f"{i}")
 
                 except requests.exceptions.RequestException:
                     time.sleep(0.5)
                     continue
+        save_image.close()
 
     # save DOCS
 
