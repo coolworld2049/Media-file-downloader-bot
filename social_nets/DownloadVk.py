@@ -13,12 +13,11 @@ from virtualenv.util.path import Path
 
 class DownloadVk:
     def __init__(self):
-        self.vk_app_id = 8109852
+        self.vk_app_id = 8090088
         self.scopes = "friends,photos,video,notes,wall,docs"
         self.user_authorized = False
         self.config = configparser.ConfigParser()
 
-    # storage file
     def storage_files(self):
         self.config.read('config.ini')
         self.config['VK_ACC_DATA'] = {'vk_app_id': self.vk_app_id,
@@ -38,9 +37,9 @@ class DownloadVk:
                          f".com/blank.html&scope={self.scopes}&response_type=token&v=5.131"
             webbrowser.open_new_tab(oAuth_link)
 
-            pyautogui.click(0, 200)  # a random click for focusing the browser
+            #pyautogui.click(0, 200)  # a random click for focusing the browser
             pyautogui.press('f6')
-            time.sleep(0.5)
+            time.sleep(0.9)
             pyautogui.hotkey('ctrl', 'c')
             vk_response_url: str = pyperclip.paste()  # for copying the selected url
 
@@ -62,7 +61,6 @@ class DownloadVk:
             self.user_authorized = False
             return f'Ошибка авторизации{e.args}'
 
-    # return json file
     def get_scopes(self):
         scopes_list = []
         self.config.read('config.ini')
@@ -80,6 +78,8 @@ class DownloadVk:
                 scopes_list.append(',')
                 i += 1
         return scopes_list
+
+    # get json file with PHOTOS data
 
     def get_photos_by_id(self, photo_id):
         self.config.read('config.ini')
@@ -100,6 +100,16 @@ class DownloadVk:
         })
         return json.loads(api.text)
 
+    def get_albums_count(self):
+        self.config.read('config.ini')
+
+        api = requests.get("https://api.vk.com/method/photos.getAlbums", params={
+            'access_token': self.config['VK_ACC_DATA']['vk_token'],
+            'user_id': self.config['VK_ACC_DATA']['user_id'],
+            'v': 5.131
+        })
+        return json.loads(api.text)
+
     def get_all_photos(self, offset=0, count=0):
         self.config.read('config.ini')
 
@@ -113,8 +123,9 @@ class DownloadVk:
         })
         return json.loads(api.text)
 
-    # file loading and saving
-    def docs_get(self, count=0):
+    # get json file with DOCS data
+
+    def get_docs(self, count=0):
         self.config.read('config.ini')
 
         api = requests.get("https://api.vk.com/method/docs.get", params={
@@ -124,43 +135,47 @@ class DownloadVk:
         })
         return json.loads(api.text)
 
+    # save PHOTOS
+
     def albums_with_photos(self):
         # получаем список id альбома и id фотографии - getAll
         photo = self.get_all_photos()
-        album_and_photos = [[]]
+        album_id_photo_id = []
         c = 0
         while c <= photo["response"]["count"]:
             for photos in photo["response"]["items"]:
-                album_and_photos.append([[photos["album_id"], photos["id"]]])  # [[album_id],[photo_id]]
+                album_id_photo_id.append([photos["album_id"], photos["id"]])
                 c += 1
-        return album_and_photos
+        return album_id_photo_id
 
     def display_albums(self):
-        i = 0
         json_data = self.get_albums()
-        albums_id_title = [[]]
+        albums_id_title = []
+        for albums in json_data["response"]["items"]:
+            albums_id_title.append([albums["id"], albums["title"]])
+        return albums_id_title
+
+    def display_albums_title(self):
+        json_data = self.get_albums()
+        albums_title = []
+        for albums in json_data["response"]["items"]:
+            albums_title.append(albums["title"])
+        for i in albums_title:
+            return i
+
+    def display_albums_id(self):
+        json_data = self.get_albums()
         albums_id = []
-        while i <= json_data["response"]["count"]:
-            for albums in json_data["response"]["items"]:
-                albums_id_title.append([albums["id"], albums["title"]])
-                albums_id.append(albums["id"])
-                i += 1
+        for albums in json_data["response"]["items"]:
+            albums_id.append(albums["id"])
         return albums_id
 
-    def save_by_id(self):
-        albums_list = self.get_albums()
-        album_id_list = []
-
-        # получаем список id всех альбомов аккаунта - getAlbums
-        v = 0
-        while v <= albums_list["response"]["count"]:
-            for albums in albums_list["response"]["items"]:
-                album_id_list.append(albums["id"])  # [[album_id]]
-                v += 1
-        full_album = self.albums_with_photos()
-        for i in range(len(full_album)):
-            for j in range(len(full_album[i])):
-                print(full_album[i][j])
+    def save_by_id(self, selected_album_id):
+        all_albums_id_photo_id = self.albums_with_photos()
+        for i in range(len(all_albums_id_photo_id) - 1):
+            for j in range(len(all_albums_id_photo_id[i]) - 1):
+                if all_albums_id_photo_id[i][0] == selected_album_id:
+                    print(all_albums_id_photo_id[0][j])
 
     def save_photo(self):
         data = self.get_all_photos()
@@ -185,14 +200,16 @@ class DownloadVk:
                     time.sleep(0.5)
                     continue
 
+    # save DOCS
+
     def save_docs(self):
-        data = self.docs_get()
+        data = self.get_docs()
         count = 100
         items_count = data["response"]["count"]
         i = 0
         while i <= data["response"]["count"]:
             if i != 0:
-                data = self.docs_get(count=count)
+                data = self.get_docs(count=count)
 
             for docs in data["response"]["items"]:
                 docs_url = docs["url"]

@@ -2,8 +2,9 @@ import logging
 from os import getenv
 
 from aiogram import Bot, Dispatcher, types
-from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, InputFile, InputMedia
 from aiogram.utils import executor
+from aiogram.utils.callback_data import CallbackData
 
 from social_nets.DownloadVk import DownloadVk
 
@@ -19,6 +20,7 @@ dp = Dispatcher(bot)
 
 # ---vk_api
 downloadVk = DownloadVk()
+save_selected_album: int
 
 
 @dp.message_handler(commands=['start'])
@@ -63,30 +65,34 @@ async def callback_button_vk(callback_query: types.CallbackQuery):
 
     try:
         ret_msg = downloadVk.auth_user()
-    except Exception as e:
-        ret_msg = e.args
-    finally:
         await bot.send_message(callback_query.from_user.id, ret_msg)
         await bot.send_message(callback_query.from_user.id, 'Выберите что необходимо скачать',
                                reply_markup=IK_scopes_list)
+    except Exception as e:
+        ret_msg = e.args
 
 
 @dp.callback_query_handler(lambda c: c.data == 'photos')
 async def callback_select_album(callback_query: types.CallbackQuery):
     # display albums list
-    print(downloadVk.user_authorized)
     IK_albums_list = InlineKeyboardMarkup()
     if downloadVk.user_authorized:
-        for album in downloadVk.display_albums():
-            IK_albums_list.add(InlineKeyboardButton(f'{album}', callback_data=f'{album}'))
-
-    if downloadVk.user_authorized:
+        album_list = downloadVk.display_albums()
+        count = 0
+        for a_id, title in album_list:
+            IK_albums_list.add(InlineKeyboardButton(f'{count}.'f'{title}', callback_data=f'{str(count)}'))
+            count += 1
         await bot.send_message(callback_query.from_user.id,
                                text='Список фотоальбомов, доступных для скачивания',
                                reply_markup=IK_albums_list)
-        downloadVk.save_by_id()
+
+
+@dp.callback_query_handler(lambda c: c.data == "2")
+async def callback_select_album(callback_query: types.CallbackQuery):
+    await bot.send_message(callback_query.from_user.id,
+                           text=f'Загрузка альбома')
+    downloadVk.save_by_id(downloadVk.display_albums_id()[2])
 
 
 if __name__ == "__main__":
     executor.start_polling(dp)
-
