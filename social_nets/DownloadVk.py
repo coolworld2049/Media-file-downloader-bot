@@ -12,6 +12,8 @@ from virtualenv.util.path import Path
 
 
 class DownloadVk:
+    count_photos: int
+
     def __init__(self):
         self.vk_app_id = 8090088
         self.scopes = "friends,photos,video,notes,wall,docs"
@@ -38,7 +40,7 @@ class DownloadVk:
             webbrowser.open_new_tab(oAuth_link)
             # pyautogui.click(0, 200)  # a random click for focusing the browser
             pyautogui.press('f6')
-            time.sleep(0.9)
+            time.sleep(1.5)
             pyautogui.hotkey('ctrl', 'c')
             vk_response_url: str = pyperclip.paste()  # for copying the selected url
 
@@ -58,7 +60,7 @@ class DownloadVk:
 
         except Exception as e:
             self.user_authorized = False
-            return f'Ошибка авторизации{e.args}' + f'{e.__annotations__}'
+            return f'Ошибка авторизации{e.args}'
 
     def get_scopes(self):
         scopes_list = []
@@ -180,10 +182,13 @@ class DownloadVk:
                 try:
                     time.sleep(0.2)
                     vk_api = requests.get(url=ownerAndPhotoId['response'][0]['sizes'][-1]['url'])
-                    with open(f"/Social-media-file-downloader/Saved photos/{filename}" + ".jpg", "wb") as write_file:
+                    with open(
+                            f"C:/Users/R/PycharmProjects/Social-media-file-downloader/Saved photos/{filename}" + ".jpg",
+                            "wb") as write_file:
                         write_file.write(vk_api.content)
                     i += 1
-                    print(f"{i}/{len(albums_with_photos)}")
+                    self.count_photos = i
+                    print(f"{i}/{len(ownerAndPhotoId)}")
 
                 except requests.exceptions.RequestException:
                     time.sleep(0.5)

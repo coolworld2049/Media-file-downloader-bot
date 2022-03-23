@@ -83,7 +83,7 @@ async def callback_select_album(callback_query: types.CallbackQuery):
         await bot.send_message(callback_query.from_user.id, text='Вы не авторизованы', )
 
 
-@dp.callback_query_handler(lambda c: c.data == '281175201')
+@dp.callback_query_handler(lambda c: c.data == '281821142')
 async def callback_select_album(callback_query: types.CallbackQuery):
     await bot.send_message(callback_query.from_user.id, text=f'Загрузка альбома {callback_query.data}')
     downloadVk.save_photo_by_id(int(callback_query.data))
