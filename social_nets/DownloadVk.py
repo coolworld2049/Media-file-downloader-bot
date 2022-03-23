@@ -36,8 +36,7 @@ class DownloadVk:
             oAuth_link = f"https://oauth.vk.com/authorize?client_id={self.vk_app_id}&display=page&redirect_uri=https://oauth.vk.com/blank.html" \
                          f".com/blank.html&scope={self.scopes}&response_type=token&v=5.131"
             webbrowser.open_new_tab(oAuth_link)
-
-            #pyautogui.click(0, 200)  # a random click for focusing the browser
+            # pyautogui.click(0, 200)  # a random click for focusing the browser
             pyautogui.press('f6')
             time.sleep(0.9)
             pyautogui.hotkey('ctrl', 'c')
@@ -59,7 +58,7 @@ class DownloadVk:
 
         except Exception as e:
             self.user_authorized = False
-            return f'Ошибка авторизации{e.args}'
+            return f'Ошибка авторизации{e.args}' + f'{e.__annotations__}'
 
     def get_scopes(self):
         scopes_list = []
@@ -83,17 +82,15 @@ class DownloadVk:
 
     def get_photos_by_id(self, photo_id):
         self.config.read('config.ini')
-
         api = requests.get("https://api.vk.com/method/photos.getById", params={
             'access_token': self.config['VK_ACC_DATA']['vk_token'],
-            'photos': self.config['VK_ACC_DATA']['user_id'] + "_" + photo_id,
+            'photos': str(self.config['VK_ACC_DATA']['vk_user_id'] + "_" + str(photo_id)),
             'v': 5.131
         })
-        return json.loads(api.text)
+        return api.json()
 
     def get_albums(self):
         self.config.read('config.ini')
-
         api = requests.get("https://api.vk.com/method/photos.getAlbums", params={
             'access_token': self.config['VK_ACC_DATA']['vk_token'],
             'v': 5.131
@@ -151,8 +148,10 @@ class DownloadVk:
     def display_albums(self):
         json_data = self.get_albums()
         albums_id_title = []
+        count = 1
         for albums in json_data["response"]["items"]:
-            albums_id_title.append([albums["id"], albums["title"]])
+            albums_id_title.append([albums["id"], albums["title"], count])
+            count += 1
         return albums_id_title
 
     def display_albums_title(self):
@@ -170,33 +169,23 @@ class DownloadVk:
             albums_id.append(albums["id"])
         return albums_id
 
-    def save_by_id(self, selected_album_id):
-        all_albums_id_photo_id = self.albums_with_photos()
-        for i in range(len(all_albums_id_photo_id) - 1):
-            for j in range(len(all_albums_id_photo_id[i]) - 1):
-                if all_albums_id_photo_id[i][0] == selected_album_id:
-                    print(all_albums_id_photo_id[0][j])
-
-    def save_photo(self):
-        data = self.get_all_photos()
-        count = 1
-        items_count = data["response"]["count"]
-        i = 0
-        while i <= data["response"]["count"]:
-            if i != 0:
-                data = self.get_all_photos(offset=i, count=count)
-            for photos in data["response"]["items"]:
-                photo_url = photos["sizes"][-1]["url"]
+    def save_photo_by_id(self, selected_album_id: int):
+        global vk_api
+        albums_with_photos = self.albums_with_photos()
+        for i in range(len(albums_with_photos)):
+            if albums_with_photos[i][0] == selected_album_id:
+                ownerAndPhotoId = self.get_photos_by_id(int(albums_with_photos[i][1]))
 
                 filename = random.randint(1153, 546864)
                 try:
-                    time.sleep(0.1)
-                    api = requests.get(photo_url)
-                    with open(f"Saved photos/{filename}" + ".jpg", "wb") as write_file:
-                        write_file.write(api.content)
+                    time.sleep(0.2)
+                    vk_api = requests.get(url=ownerAndPhotoId['response'][0]['sizes'][-1]['url'])
+                    with open(f"/Social-media-file-downloader/Saved photos/{filename}" + ".jpg", "wb") as write_file:
+                        write_file.write(vk_api.content)
                     i += 1
-                    print(f"{i}/{items_count}")
-                except requests.exceptions:
+                    print(f"{i}/{len(albums_with_photos)}")
+
+                except requests.exceptions.RequestException:
                     time.sleep(0.5)
                     continue
 
