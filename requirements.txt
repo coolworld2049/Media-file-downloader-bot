@@ -25,3 +25,5 @@ virtualenv==20.13.4
 yarl==1.7.2
 PyAutoGUI~=0.9.53
 pyperclip~=1.8.2
+tqdm~=4.63.1
+pytube~=12.0.0

@@ -9,6 +9,7 @@ import pyautogui
 import pyperclip
 import requests
 from virtualenv.util.path import Path
+from tqdm import tqdm
 
 
 class DownloadVk:
@@ -185,10 +186,10 @@ class DownloadVk:
             if albums_with_photos_list[i][0] == selected_album_id:
                 ownerAndPhotoId_list.append(albums_with_photos_list[i][1])
 
-        for i in range(len(ownerAndPhotoId_list)):
+        for i in tqdm(range(len(ownerAndPhotoId_list))):
             if albums_with_photos_list[i][0] == selected_album_id:
                 try:
-                    ownerAndPhotoId = self.get_photos_by_id(int(albums_with_photos_list[i][1]))
+                    ownerAndPhotoId = self.get_photos_by_id(albums_with_photos_list[i][1])
                     time.sleep(0.1)
                     vk_api = requests.get(url=ownerAndPhotoId['response'][0]['sizes'][-1]['url'])
                     time.sleep(0.1)
@@ -196,13 +197,11 @@ class DownloadVk:
                             f"C:/Users/R/PycharmProjects/Social-media-file-downloader/Saved photos/{random.randint(1153, 546864)}" + ".jpg",
                             "wb") as save_image:
                         save_image.write(vk_api.content)
-                    print(f"{i}")
 
                 except requests.exceptions.RequestException:
                     time.sleep(0.5)
                     continue
-        ownerAndPhotoId_list.clear()
-        albums_with_photos_list.clear()
+            return i
 
     # save DOCS
 
