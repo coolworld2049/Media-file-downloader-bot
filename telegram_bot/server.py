@@ -1,12 +1,10 @@
-import json
 import logging
-import time
 from os import getenv
 
 from aiogram import Bot, Dispatcher, types
 from aiogram.contrib.fsm_storage.memory import MemoryStorage
 from aiogram.contrib.middlewares.logging import LoggingMiddleware
-from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, KeyboardButton, ReplyKeyboardMarkup
 from aiogram.utils import executor
 
 from social_nets.DownloadVk import DownloadVk
@@ -84,13 +82,23 @@ async def callback_select_album(callback_query: types.CallbackQuery):
         await bot.send_message(callback_query.from_user.id, text='Вы не авторизованы', )
 
 
-@dp.callback_query_handler(lambda c: c.data == '281175201')
+@dp.callback_query_handler(lambda c: c.data)
 async def callback_select_album(callback_query: types.CallbackQuery):
-    await bot.send_message(callback_query.from_user.id, text=f'Загрузка альбома {callback_query.data}')
-    downloadVk.save_photo_by_id(int(callback_query.data))
-    # await bot.send_message(callback_query.from_user.id, text=f'{downloadVk.albums_with_photos()}')
+    IK_stop = ReplyKeyboardMarkup(resize_keyboard=True)
+    IK_stop.add(KeyboardButton('остановить текущую загрузку', callback_data='stop'))
+
+    for items in downloadVk.display_albums_id():
+        if lambda c: c.data == items:
+            downloadVk.save_photo_by_id(int(callback_query.data))
+            await bot.send_message(callback_query.from_user.id,
+                                   text=f'Загрузка альбома {callback_query.data}',
+                                   reply_markup=IK_stop)
+
+
+@dp.callback_query_handler(lambda c: c.data == 'stop')
+async def callback_select_album(callback_query: types.CallbackQuery):
+    await bot.send_message(callback_query.from_user.id, text=f'Загрузка альбома остановлена')
 
 
 if __name__ == "__main__":
     executor.start_polling(dp)
-

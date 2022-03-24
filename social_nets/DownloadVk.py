@@ -4,7 +4,6 @@ import os
 import random
 import time
 import webbrowser
-from collections import OrderedDict
 
 import pyautogui
 import pyperclip
@@ -37,7 +36,7 @@ class DownloadVk:
             oAuth_link = f"https://oauth.vk.com/authorize?client_id={self.vk_app_id}&display=page&redirect_uri=https://oauth.vk.com/blank.html" \
                          f".com/blank.html&scope={self.scopes}&response_type=token&v=5.131"
             webbrowser.open_new_tab(oAuth_link)
-            # pyautogui.click(0, 200)  # a random click for focusing the browser
+            pyautogui.click(0, 200)  # a random click for focusing the browser
             pyautogui.press('f6')
             time.sleep(1.5)
             pyautogui.hotkey('ctrl', 'c')
@@ -60,6 +59,11 @@ class DownloadVk:
         except Exception as e:
             self.user_authorized = False
             return f'Ошибка авторизации{e.args}'
+
+    def auth_user_from_bot(self):
+        oAuth_link = f"https://oauth.vk.com/authorize?client_id={self.vk_app_id}&display=page&redirect_uri=https://oauth.vk.com/blank.html" \
+                     f".com/blank.html&scope={self.scopes}&response_type=token&v=5.131"
+        return oAuth_link
 
     def get_scopes(self):
         scopes_list = []
@@ -197,7 +201,8 @@ class DownloadVk:
                 except requests.exceptions.RequestException:
                     time.sleep(0.5)
                     continue
-        save_image.close()
+        ownerAndPhotoId_list.clear()
+        albums_with_photos_list.clear()
 
     # save DOCS
 
