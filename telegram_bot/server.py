@@ -4,10 +4,11 @@ from os import getenv
 from aiogram import Bot, Dispatcher, types
 from aiogram.contrib.fsm_storage.memory import MemoryStorage
 from aiogram.contrib.middlewares.logging import LoggingMiddleware
-from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, KeyboardButton, ReplyKeyboardMarkup
-from aiogram.utils import executor
+from aiogram.dispatcher import FSMContext
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
 from social_nets.DownloadVk import DownloadVk
+from telegram_bot import States
 
 # ---bot
 logging.basicConfig(level=logging.INFO)
@@ -15,12 +16,12 @@ logging.basicConfig(level=logging.INFO)
 bot_token = getenv("BOT_TOKEN")
 storage = MemoryStorage()
 bot = Bot(token=bot_token)
+
 dp = Dispatcher(bot, storage=storage)
 dp.middleware.setup(LoggingMiddleware())
 
 # ---vk_api
 downloadVk = DownloadVk()
-save_selected_album: int
 
 
 @dp.message_handler(commands=['start'])
@@ -54,51 +55,60 @@ async def send_select(message: types.Message):
 
 @dp.callback_query_handler(lambda c: c.data == 'buttonVk')
 async def callback_button_vk(callback_query: types.CallbackQuery):
-    auth_msg = downloadVk.auth_user()
-    await bot.send_message(callback_query.from_user.id, auth_msg)
+    send_link = downloadVk.send_auth_link()
+    await bot.send_message(callback_query.from_user.id,
+                           text=f'Это ссылка для авторизации в вашем аккаунте.'
+                                f' Нажмите на ссылку и скопируйте адрес из адресной'
+                                f' строки в открывшемся окне браузера и нажмите на кнопку'
+                                f' "Вставить" в меню:    {send_link}')
+    await States.States.callback_auth_link.set()  # start FSM machine
 
-    # display scopes list
-    IK_scopes_list = InlineKeyboardMarkup()
-    scopes_str = downloadVk.scopes.split(',')
-    for scope in scopes_str:
-        IK_scopes_list.add(InlineKeyboardButton(f'{scope}', callback_data=f'{scope}'))
-    await bot.send_message(callback_query.from_user.id, 'Выберите что необходимо скачать',
-                           reply_markup=IK_scopes_list)
+
+@dp.message_handler(state=States.States.callback_auth_link)
+async def bot_auth_vk(message: types.Message, state: FSMContext):
+    downloadVk.auth_vk(message.text)
+
+    if downloadVk.user_authorized:
+        await bot.send_message(message.from_user.id, 'Вы авторизованы!')
+        if downloadVk.user_authorized:
+            # display scopes list
+            IK_scopes_list = InlineKeyboardMarkup()
+            scopes_str = downloadVk.scopes.split(',')
+            for scope in scopes_str:
+                IK_scopes_list.add(InlineKeyboardButton(f'{scope}', callback_data=f'{scope}'))
+            await bot.send_message(message.from_user.id, 'Выберите что необходимо скачать',
+                                   reply_markup=IK_scopes_list)
+    else:
+        await bot.send_message(message.from_user.id, 'Ошибка авторизации!')
+        await send_select()
+
+    await state.finish()
 
 
 @dp.callback_query_handler(lambda c: c.data == 'photos')
-async def callback_select_album(callback_query: types.CallbackQuery):
+async def callback_photos(callback_query: types.CallbackQuery):
     # display albums list
     IK_albums_list = InlineKeyboardMarkup()
     if downloadVk.user_authorized:
         album_list = downloadVk.display_albums()
-        for a_id, title, count in album_list:
-            IK_albums_list.add(InlineKeyboardButton(f'{count}.'f'{title} id: {a_id}', callback_data=str(a_id)))
-            count += 1
+        for a_id, title in album_list:
+            IK_albums_list.add(InlineKeyboardButton(f'{title}', callback_data=str(a_id)))
         await bot.send_message(callback_query.from_user.id,
                                text='Список фотоальбомов, доступных для скачивания',
                                reply_markup=IK_albums_list)
     else:
-        await bot.send_message(callback_query.from_user.id, text='Вы не авторизованы', )
+        await bot.send_message(callback_query.from_user.id, text='Вы не авторизованы')
 
 
 @dp.callback_query_handler(lambda c: c.data)
-async def callback_select_album(callback_query: types.CallbackQuery):
-    IK_stop = ReplyKeyboardMarkup(resize_keyboard=True)
-    IK_stop.add(KeyboardButton('остановить текущую загрузку', callback_data='stop'))
-
-    for items in downloadVk.display_albums_id():
-        if lambda c: c.data == items:
-            downloadVk.save_photo_by_id(int(callback_query.data))
+async def callback_save_album(callback_query: types.CallbackQuery):
+    items = downloadVk.display_albums_id()
+    sel_album = callback_query.data
+    for item in items:
+        if item == int(sel_album):
             await bot.send_message(callback_query.from_user.id,
-                                   text=f'Загрузка альбома {callback_query.data}',
-                                   reply_markup=IK_stop)
-
-
-@dp.callback_query_handler(lambda c: c.data == 'stop')
-async def callback_select_album(callback_query: types.CallbackQuery):
-    await bot.send_message(callback_query.from_user.id, text=f'Загрузка альбома остановлена')
-
-
-if __name__ == "__main__":
-    executor.start_polling(dp, skip_updates=False)
+                                   text=f'Загрузка альбома {downloadVk.display_albums_title(item)}')
+            downloadVk.save_photo_by_id(int(sel_album))
+            await bot.send_message(callback_query.from_user.id,
+                                   text=f'Альбом {downloadVk.display_albums_title(item)} загружен')
+            break
