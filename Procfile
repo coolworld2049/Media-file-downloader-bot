@@ -1,1 +1,1 @@
-bot: python start_polling.py
+web: python start_polling.py
