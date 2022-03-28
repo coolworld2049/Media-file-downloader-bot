@@ -55,11 +55,6 @@ async def on_shutdown(dp):
     logging.warning('Bye!')
 
 
-@dp.message_handler()
-async def send_start(message: types.Message):
-    await message.answer('loop')
-
-
 @dp.message_handler(commands=['start'])
 async def send_start(message: types.Message):
     await message.answer('Привет!\n\n'
