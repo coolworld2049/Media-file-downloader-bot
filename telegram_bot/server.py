@@ -22,9 +22,8 @@ dp.middleware.setup(LoggingMiddleware())
 
 bot.delete_webhook()
 bot.set_webhook(url=os.getenv('API_URL'))
-server = Flask(__name__)
-server.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
-
+"""server.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
+"""
 # ---vk_api
 downloadVk = DownloadVk()
 
