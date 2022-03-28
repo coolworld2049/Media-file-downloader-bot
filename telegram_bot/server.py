@@ -36,13 +36,12 @@ WEBAPP_HOST = '0.0.0.0'
 WEBAPP_PORT = os.getenv('PORT', default=8000)
 
 start_webhook(
-        dispatcher=dp,
-        webhook_path=WEBHOOK_PATH,
-        skip_updates=True,
-        host=WEBAPP_HOST,
-        port=WEBAPP_PORT,
-    )
-
+    dispatcher=dp,
+    webhook_path=WEBHOOK_PATH,
+    skip_updates=True,
+    host=WEBAPP_HOST,
+    port=WEBAPP_PORT,
+)
 
 
 @dp.message_handler(commands=['start'])
