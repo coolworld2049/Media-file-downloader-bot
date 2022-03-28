@@ -1,1 +1,1 @@
-web: python start_polling.py
+web: python start_polling.py runserver 0.0.0.0:$PORT

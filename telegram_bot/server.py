@@ -35,10 +35,21 @@ WEBHOOK_URL = f'{WEBHOOK_HOST}{WEBHOOK_PATH}'
 WEBAPP_HOST = '0.0.0.0'
 WEBAPP_PORT = os.getenv('PORT', default=8000)
 
+
+async def on_startup(dispatcher):
+    await bot.set_webhook(WEBHOOK_URL, drop_pending_updates=True)
+
+
+async def on_shutdown(dispatcher):
+    await bot.delete_webhook()
+
+
 start_webhook(
     dispatcher=dp,
     webhook_path=WEBHOOK_PATH,
-    skip_updates=True,
+    on_startup=on_startup,
+    on_shutdown=on_shutdown,
+    skip_updates=False,
     host=WEBAPP_HOST,
     port=WEBAPP_PORT,
 )
