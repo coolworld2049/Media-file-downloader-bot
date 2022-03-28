@@ -7,6 +7,7 @@ from aiogram.contrib.fsm_storage.memory import MemoryStorage
 from aiogram.contrib.middlewares.logging import LoggingMiddleware
 from aiogram.dispatcher import FSMContext
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.utils.executor import start_webhook
 
 from social_nets.DownloadVk import DownloadVk
 from telegram_bot import States
@@ -33,6 +34,15 @@ WEBHOOK_URL = f'{WEBHOOK_HOST}{WEBHOOK_PATH}'
 # webserver settings
 WEBAPP_HOST = '0.0.0.0'
 WEBAPP_PORT = os.getenv('PORT', default=8000)
+
+start_webhook(
+        dispatcher=dp,
+        webhook_path=WEBHOOK_PATH,
+        skip_updates=True,
+        host=WEBAPP_HOST,
+        port=WEBAPP_PORT,
+    )
+
 
 
 @dp.message_handler(commands=['start'])
