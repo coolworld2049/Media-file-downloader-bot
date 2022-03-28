@@ -1,8 +1,13 @@
 Media-downloader
 --------
-is a command line application written in Python that loads VK user data.
+is a telegram bot that loads user data.
 
 Features
 --------
-- Download user's albums
-- Download user's documents
+Vk:
+  - Download user's albums
+  - Download user's documents
+--------
+YouTube:
+  - ...
+  - ...
