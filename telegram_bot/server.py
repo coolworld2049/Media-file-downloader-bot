@@ -32,18 +32,17 @@ WEBHOOK_PATH = f'/webhook/{BOT_TOKEN}'
 WEBHOOK_URL = f'{WEBHOOK_HOST}{WEBHOOK_PATH}'
 
 # webserver settings
-WEBAPP_HOST = 'localhost'
+WEBAPP_HOST = '0.0.0.0'
 WEBAPP_PORT = os.getenv('PORT', default=8000)
 
 
 async def on_startup(dp):
-    await bot.set_webhook(WEBHOOK_URL)
+    await bot.set_webhook(WEBHOOK_URL, drop_pending_updates=True)
     # insert code here to run it after start
 
 
 async def on_shutdown(dp):
     logging.warning('Shutting down..')
-
     # insert code here to run it before shutdown
 
     # Remove webhook (not acceptable in some cases)
@@ -54,6 +53,11 @@ async def on_shutdown(dp):
     await dp.storage.wait_closed()
 
     logging.warning('Bye!')
+
+
+@dp.message_handler()
+async def send_start(message: types.Message):
+    await message.answer('loop')
 
 
 @dp.message_handler(commands=['start'])
