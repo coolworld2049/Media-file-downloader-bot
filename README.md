@@ -11,3 +11,8 @@ Vk:
 YouTube:
   - ...
   - ...
+  - 
+Start app
+--------
+- start_polling.py - local launch
+- bot.py - running on heroku hosting

@@ -7,7 +7,6 @@ from aiogram.contrib.fsm_storage.memory import MemoryStorage
 from aiogram.contrib.middlewares.logging import LoggingMiddleware
 from aiogram.dispatcher import FSMContext
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
-from aiogram.utils.executor import start_webhook
 
 from social_nets.DownloadVk import DownloadVk
 from telegram_bot import States
@@ -24,7 +23,25 @@ dp.middleware.setup(LoggingMiddleware())
 # ---vk_api
 downloadVk = DownloadVk()
 
+# ---WEBHOOKS
+HEROKU_APP_NAME = os.getenv('HEROKU_APP_NAME')
 
+# webhook settings
+WEBHOOK_HOST = f'https://{HEROKU_APP_NAME}.herokuapp.com'
+WEBHOOK_PATH = f'/webhook/{BOT_TOKEN}'
+WEBHOOK_URL = f'{WEBHOOK_HOST}{WEBHOOK_PATH}'
+
+# webserver settings
+WEBAPP_HOST = '0.0.0.0'
+WEBAPP_PORT = os.getenv('PORT', default=8000)
+
+
+async def on_startup(dispather):
+    await bot.set_webhook(WEBHOOK_URL, drop_pending_updates=True)
+
+
+async def on_shutdown(dispather):
+    await bot.delete_webhook()
 
 
 @dp.message_handler(commands=['start'])
