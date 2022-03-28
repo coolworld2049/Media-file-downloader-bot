@@ -16,7 +16,6 @@ logging.basicConfig(level=logging.INFO)
 bot_token = getenv("BOT_TOKEN")
 storage = MemoryStorage()
 bot = Bot(token=bot_token)
-
 dp = Dispatcher(bot, storage=storage)
 dp.middleware.setup(LoggingMiddleware())
 
