@@ -7,14 +7,17 @@ from aiogram.contrib.fsm_storage.memory import MemoryStorage
 from aiogram.contrib.middlewares.logging import LoggingMiddleware
 from aiogram.dispatcher import FSMContext
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+from dotenvy import load_env, read_file
 
 from social_nets.DownloadVk import DownloadVk
 from telegram_bot import States
 
+load_env(read_file('vars.env'))
+
 # ---bot
 logging.basicConfig(level=logging.INFO)
 
-BOT_TOKEN = getenv("BOT_TOKEN")
+BOT_TOKEN = os.environ.get('BOT_TOKEN')
 storage = MemoryStorage()
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher(bot, storage=storage)
@@ -33,7 +36,7 @@ WEBHOOK_URL = f'{WEBHOOK_HOST}{WEBHOOK_PATH}'
 
 # webserver settings
 WEBAPP_HOST = '0.0.0.0'
-WEBAPP_PORT = os.getenv('PORT', default=8000)
+WEBAPP_PORT = os.environ.get('PORT', default=8000)
 
 
 async def on_startup(dp):
