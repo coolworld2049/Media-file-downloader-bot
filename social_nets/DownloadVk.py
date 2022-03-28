@@ -49,8 +49,6 @@ class DownloadVk:
                 self.config.write(open("config.ini", "w"))
                 self.user_authorized = True
                 return "Вы авторизованы!"
-            else:
-                return "Вы ввели неверные данные!"
         except Exception as e:
             self.user_authorized = False
             return f"Ошибка авторизации!{e.args}"

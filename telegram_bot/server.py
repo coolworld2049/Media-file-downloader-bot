@@ -111,7 +111,6 @@ async def bot_auth_vk(message: types.Message, state: FSMContext):
                                    reply_markup=IK_scopes_list)
     else:
         await bot.send_message(message.from_user.id, 'Ошибка авторизации!')
-        await send_select()
 
     await state.finish()
 
