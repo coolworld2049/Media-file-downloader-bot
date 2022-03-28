@@ -56,23 +56,26 @@ class DownloadVk:
     # get available scopes
 
     def get_scopes(self):
-        if self.user_authorized:
-            scopes_list = []
-            self.config.read('config.ini')
+        try:
+            if self.user_authorized:
+                scopes_list = []
+                self.config.read('config.ini')
 
-            api = requests.get("https://api.vk.com/method/apps.getScopes", params={
-                'access_token': self.config['VK_ACC_DATA']['vk_token'],
-                'owner_id': 'user',
-                'v': 5.131
-            })
-            data = json.loads(api.text)
-            i = 0
-            while i <= data["response"]["count"]:
-                for names in data["response"]["items"]:
-                    scopes_list.append(names["items"]["name"])
-                    scopes_list.append(',')
-                    i += 1
-            return scopes_list
+                api = requests.get("https://api.vk.com/method/apps.getScopes", params={
+                    'access_token': self.config['VK_ACC_DATA']['vk_token'],
+                    'owner_id': 'user',
+                    'v': 5.131
+                })
+                data = json.loads(api.text)
+                i = 0
+                while i <= data["response"]["count"]:
+                    for names in data["response"]["items"]:
+                        scopes_list.append(names["items"]["name"])
+                        scopes_list.append(',')
+                        i += 1
+                return scopes_list
+        except Exception as e:
+            return e.args
 
     # get JSON file with PHOTOS data
 
@@ -133,77 +136,92 @@ class DownloadVk:
     # sorting all PHOTOS by albums_id and photo_id
 
     def albums_with_photos(self):
-        if self.user_authorized:
-            # get album id and photo id - getAll
-            data = self.get_all_photos()
-            album_id_photo_id = []
-            count = 200
-            i = 0
-            while i <= data["response"]["count"]:
-                data = self.get_all_photos(offset=i, count=count)
-                for item in data["response"]["items"]:
-                    album_id_photo_id.append([item["album_id"], item["id"]])
-                i += 200
-            return album_id_photo_id
+        try:
+            if self.user_authorized:
+                # get album id and photo id - getAll
+                data = self.get_all_photos()
+                album_id_photo_id = []
+                count = 200
+                i = 0
+                while i <= data["response"]["count"]:
+                    data = self.get_all_photos(offset=i, count=count)
+                    for item in data["response"]["items"]:
+                        album_id_photo_id.append([item["album_id"], item["id"]])
+                    i += 200
+                return album_id_photo_id
+        except Exception as e:
+            return e.args
 
     def display_albums(self):
-        if self.user_authorized:
-            json_data = self.get_albums()
-            albums_id_title = []
-            for albums in json_data["response"]["items"]:
-                albums_id_title.append([albums["id"], albums["title"]])
-            return albums_id_title
+        try:
+            if self.user_authorized:
+                json_data = self.get_albums()
+                albums_id_title = []
+                for albums in json_data["response"]["items"]:
+                    albums_id_title.append([albums["id"], albums["title"]])
+                return albums_id_title
+        except Exception as e:
+            return e.args
 
     def display_albums_title(self, album_id: int):
-        if self.user_authorized:
-            json_data = self.get_albums()
-            albums_title = []
-            for albums in json_data["response"]["items"]:
-                albums_title.append([albums["id"], albums["title"]])
-            for i in range(len(albums_title)):
-                if albums_title[i][0] == album_id:
-                    return str(albums_title[0][i])
+        try:
+            if self.user_authorized:
+                json_data = self.get_albums()
+                albums_title = []
+                for albums in json_data["response"]["items"]:
+                    albums_title.append([albums["id"], albums["title"]])
+                for i in range(len(albums_title)):
+                    if albums_title[i][0] == album_id:
+                        return str(albums_title[0][i])
+        except Exception as e:
+            return e.args
 
     def display_albums_id(self):
-        if self.user_authorized:
-            json_data = self.get_albums()
-            albums_id = []
-            for albums in json_data["response"]["items"]:
-                albums_id.append(albums["id"])
-            return albums_id
+        try:
+            if self.user_authorized:
+                json_data = self.get_albums()
+                albums_id = []
+                for albums in json_data["response"]["items"]:
+                    albums_id.append(albums["id"])
+                return albums_id
+        except Exception as e:
+            return e.args
 
     # downloading PHOTOS by album
 
     def save_photo_by_id(self, selected_album_id: int):
         # 100 photo per 1 min
         if self.user_authorized:
-            Path(os.curdir + "/Saved photos").mkdir(parents=True, exist_ok=True, mode=0o666)
-            albums_with_photos_list = self.albums_with_photos()
-            ownerAndPhotoId_list = []
+            try:
+                Path(os.curdir + "/Saved photos").mkdir(parents=True, exist_ok=True, mode=0o666)
+                albums_with_photos_list = self.albums_with_photos()
+                ownerAndPhotoId_list = []
 
-            # id list with selected album photos
-            for i in range(len(albums_with_photos_list)):
-                if albums_with_photos_list[i][0] == selected_album_id:
-                    ownerAndPhotoId_list.append(albums_with_photos_list[i][1])
-
-            for _ in tqdm(range(len(ownerAndPhotoId_list))):
+                # id list with selected album photos
                 for i in range(len(albums_with_photos_list)):
                     if albums_with_photos_list[i][0] == selected_album_id:
-                        try:
-                            ownerAndPhotoId = self.get_photos_by_id(albums_with_photos_list[i][1])
-                            time.sleep(0.1)
-                            print(ownerAndPhotoId['response'][0]['sizes'][-1]['url'])
-                            vk_api = requests.get(ownerAndPhotoId['response'][0]['sizes'][-1]['url'])
-                            album_title = self.display_albums_title(selected_album_id)
-                            filename = album_title + str(random.randint(1153, 546864))
-                            with open(f"C:/Users/R/PycharmProjects/Social-media-file-downloader/Saved photos/"
-                                      f"{filename}.jpg", "wb") as save_image:
-                                save_image.write(vk_api.content)
-                        except requests.exceptions.RequestException:
-                            time.sleep(0.5)
+                        ownerAndPhotoId_list.append(albums_with_photos_list[i][1])
+
+                for _ in tqdm(range(len(ownerAndPhotoId_list))):
+                    for i in range(len(albums_with_photos_list)):
+                        if albums_with_photos_list[i][0] == selected_album_id:
+                            try:
+                                ownerAndPhotoId = self.get_photos_by_id(albums_with_photos_list[i][1])
+                                time.sleep(0.1)
+                                print(ownerAndPhotoId['response'][0]['sizes'][-1]['url'])
+                                vk_api = requests.get(ownerAndPhotoId['response'][0]['sizes'][-1]['url'])
+                                album_title = self.display_albums_title(selected_album_id)
+                                filename = album_title + str(random.randint(1153, 546864))
+                                with open(f"C:/Users/R/PycharmProjects/Social-media-file-downloader/Saved photos/"
+                                          f"{filename}.jpg", "wb") as save_image:
+                                    save_image.write(vk_api.content)
+                            except requests.exceptions.RequestException:
+                                time.sleep(0.5)
+                                continue
+                        else:
                             continue
-                    else:
-                        continue
+            except Exception as e:
+                return e.args
 
     # downloading DOCS
 
