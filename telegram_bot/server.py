@@ -1,4 +1,5 @@
 import logging
+import os
 from os import getenv
 
 from aiogram import Bot, Dispatcher, types
@@ -6,6 +7,7 @@ from aiogram.contrib.fsm_storage.memory import MemoryStorage
 from aiogram.contrib.middlewares.logging import LoggingMiddleware
 from aiogram.dispatcher import FSMContext
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+from flask import Flask
 
 from social_nets.DownloadVk import DownloadVk
 from telegram_bot import States
@@ -18,6 +20,11 @@ storage = MemoryStorage()
 bot = Bot(token=bot_token)
 dp = Dispatcher(bot, storage=storage)
 dp.middleware.setup(LoggingMiddleware())
+
+bot.delete_webhook()
+bot.set_webhook(url=os.getenv('API_URL'))
+server = Flask(__name__)
+server.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
 
 # ---vk_api
 downloadVk = DownloadVk()
