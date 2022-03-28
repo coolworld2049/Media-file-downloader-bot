@@ -132,13 +132,16 @@ async def callback_photos(callback_query: types.CallbackQuery):
 
 @dp.callback_query_handler(lambda c: c.data)
 async def callback_save_album(callback_query: types.CallbackQuery):
-    items = downloadVk.display_albums_id()
-    sel_album = callback_query.data
-    for item in items:
-        if item == int(sel_album):
-            await bot.send_message(callback_query.from_user.id,
-                                   text=f'Загрузка альбома {downloadVk.display_albums_title(item)}')
-            downloadVk.save_photo_by_id(int(sel_album))
-            await bot.send_message(callback_query.from_user.id,
-                                   text=f'Альбом {downloadVk.display_albums_title(item)} загружен')
-            break
+    try:
+        items = downloadVk.display_albums_id()
+        sel_album = callback_query.data
+        for item in items:
+            if item == int(sel_album):
+                await bot.send_message(callback_query.from_user.id,
+                                       text=f'Загрузка альбома {downloadVk.display_albums_title(item)}')
+                downloadVk.save_photo_by_id(int(sel_album))
+                await bot.send_message(callback_query.from_user.id,
+                                       text=f'Альбом {downloadVk.display_albums_title(item)} загружен')
+                break
+    except Exception as e:
+        await bot.send_message(callback_query.from_user.id, text=f'Ошибка {e.args}')
