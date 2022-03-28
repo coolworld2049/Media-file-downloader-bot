@@ -1,1 +1,1 @@
-web: python start_polling.py
+web: python3 start_polling.py
