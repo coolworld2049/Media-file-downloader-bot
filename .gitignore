@@ -27,7 +27,7 @@ share/python-wheels/
 *.egg
 telegram_bot/config.ini
 MANIFEST
-.ini
+
 
 # PyInstaller
 #  Usually these files are written by a python script from a template
@@ -130,4 +130,4 @@ dmypy.json
 # Pyre type checker
 .pyre/
 
-
+.ini
