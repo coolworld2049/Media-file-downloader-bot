@@ -1,61 +1,41 @@
 import logging
-import os
-from os import getenv
 
 from aiogram import Bot, Dispatcher, types
 from aiogram.contrib.fsm_storage.memory import MemoryStorage
 from aiogram.contrib.middlewares.logging import LoggingMiddleware
 from aiogram.dispatcher import FSMContext
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
-from dotenvy import load_env, read_file
 
+from cloud_storage.YandexDisk import YandexDisk
+from data import ConfigStorage
 from social_nets.DownloadVk import DownloadVk
-from telegram_bot import States
-
-load_env(read_file('vars.env'))
-
-# ---bot
-logging.basicConfig(level=logging.INFO)
-
-BOT_TOKEN = os.environ.get('BOT_TOKEN')
-storage = MemoryStorage()
-bot = Bot(token=BOT_TOKEN)
-dp = Dispatcher(bot, storage=storage)
-dp.middleware.setup(LoggingMiddleware())
+from states import States
 
 # ---vk_api
 downloadVk = DownloadVk()
+config = ConfigStorage.configParser
+
+# ---ya_disk_api
+yandexDisk = YandexDisk()
+
+# ---Bot
+logging.basicConfig(level=logging.INFO)
+
+BOT_TOKEN = config["BOT_DATA"]["BOT_TOKEN"]
+bot = Bot(token=BOT_TOKEN)
+MyStates = States.States
+dp = Dispatcher(bot, storage=MemoryStorage())
+dp.middleware.setup(LoggingMiddleware())
 
 # ---WEBHOOKS
-HEROKU_APP_NAME = os.getenv('HEROKU_APP_NAME')
+HEROKU_APP_NAME = config.get("BOT_DATA", "HEROKU_APP_NAME")
 
-# webhook settings
 WEBHOOK_HOST = f'https://{HEROKU_APP_NAME}.herokuapp.com'
 WEBHOOK_PATH = f'/webhook/{BOT_TOKEN}'
 WEBHOOK_URL = f'{WEBHOOK_HOST}{WEBHOOK_PATH}'
 
-# webserver settings
 WEBAPP_HOST = '0.0.0.0'
-WEBAPP_PORT = os.environ.get('PORT', default=8000)
-
-
-async def on_startup(dp):
-    await bot.set_webhook(WEBHOOK_URL, drop_pending_updates=True)
-    # insert code here to run it after start
-
-
-async def on_shutdown(dp):
-    logging.warning('Shutting down..')
-    # insert code here to run it before shutdown
-
-    # Remove webhook (not acceptable in some cases)
-    await bot.delete_webhook()
-
-    # Close DB connection (if used)
-    await dp.storage.close()
-    await dp.storage.wait_closed()
-
-    logging.warning('Bye!')
+WEBAPP_PORT = config.get("BOT_DATA", "WEBAPP_PORT")
 
 
 @dp.message_handler(commands=['start'])
@@ -66,6 +46,12 @@ async def send_start(message: types.Message):
                          'Список команд:\n'
                          '\t/select - выбрать соц. сеть\n'
                          '\t/help - список команд')
+    await dp.bot.set_my_commands(
+        [
+            types.BotCommand("start", "Запустить бота"),
+            types.BotCommand("help", "Вывести справку"),
+            types.BotCommand("select", "Выбрать соц сеть для загрузки")
+        ])
 
 
 @dp.message_handler(commands=['help'])
@@ -78,44 +64,68 @@ async def send_help(message: types.Message):
 async def send_select(message: types.Message):
     # display source list
     IK_select_source = InlineKeyboardMarkup()
-
-    inline_buttonVk = InlineKeyboardButton('Vk', callback_data='buttonVk')
-    inline_buttonYt = InlineKeyboardButton('YouTube', callback_data='buttonYt')
-    IK_select_source.add(inline_buttonVk, inline_buttonYt)
-
+    IK_select_source.add(InlineKeyboardButton('Vk', callback_data='buttonVk'),
+                         InlineKeyboardButton('YouTube', callback_data='buttonYt'))
     await bot.send_message(message.from_user.id, text='Выберите соц. сеть',
                            reply_markup=IK_select_source)
 
 
 @dp.callback_query_handler(lambda c: c.data == 'buttonVk')
 async def callback_button_vk(callback_query: types.CallbackQuery):
-    send_link = downloadVk.send_auth_link()
+    IK_button_vk = InlineKeyboardMarkup()
+    IK_button_vk.add(InlineKeyboardButton('Авторизация', url=downloadVk.send_auth_link()))
     await bot.send_message(callback_query.from_user.id,
-                           text=f'Это ссылка для авторизации в вашем аккаунте.'
-                                f' Нажмите на ссылку и скопируйте адрес из адресной'
-                                f' строки в открывшемся окне браузера и нажмите на кнопку'
-                                f' "Вставить" в меню:    {send_link}')
-    await States.States.callback_auth_link.set()  # start FSM machine
+                           text=f'Для загрузки данных из вашего аккаунта требуется авторизация\n'
+                                f'Нажмите на ссылку и скопируйте адрес из адресной\n'
+                                f'строки в открывшемся окне браузера в чат:\n',
+                           reply_markup=IK_button_vk)
+    await MyStates.callback_auth_link.set()  # start FSM machine. state: waiting for user message
 
 
-@dp.message_handler(state=States.States.callback_auth_link)
-async def bot_auth_vk(message: types.Message, state: FSMContext):
-    downloadVk.auth_vk(message.text)
+@dp.message_handler(state=MyStates.callback_auth_link, content_types=types.ContentTypes.TEXT)
+async def message_auth_vk(message: types.Message, state: FSMContext):
+    async with state.proxy() as data:  # set the wait state
+        data['callback_auth_link'] = message.text
+        vK_auth_msg = downloadVk.auth_vk(data['callback_auth_link'])  # auth
+        await bot.send_message(message.from_user.id, vK_auth_msg)  # auth result
 
     if downloadVk.user_authorized:
-        await bot.send_message(message.from_user.id, 'Вы авторизованы!')
-        if downloadVk.user_authorized:
-            # display scopes list
-            IK_scopes_list = InlineKeyboardMarkup()
-            scopes_str = downloadVk.scopes.split(',')
-            for scope in scopes_str:
-                IK_scopes_list.add(InlineKeyboardButton(f'{scope}', callback_data=f'{scope}'))
-            await bot.send_message(message.from_user.id, 'Выберите что необходимо скачать',
-                                   reply_markup=IK_scopes_list)
-    else:
-        await bot.send_message(message.from_user.id, 'Ошибка авторизации!')
-
+        msg, IK_ya_auth = auth_ya_disk()
+        await bot.send_message(message.from_user.id, text=msg, reply_markup=IK_ya_auth)
     await state.finish()
+
+
+def auth_ya_disk():
+    IK_ya_auth = InlineKeyboardMarkup().add(InlineKeyboardButton('Yandex Disk',
+                                                                 url=yandexDisk.auth_ya_disk_send_link(),
+                                                                 callback_data='ya_disk'))
+    msg = 'Данные будут загружены в отдельную папку\n' \
+          'в вашем облачном хранилище Yandex Disk.\n' \
+          'Для авторизации перейдите по ссылке\n'
+    return msg, IK_ya_auth
+
+
+@dp.message_handler(lambda c: c.data == 'ya_disk', state=MyStates.token_ya_disk, content_types=types.ContentTypes.TEXT)
+async def message_auth_ya_disk(message: types.Message, state: FSMContext):
+    await bot.send_message(message.from_user.id, f'Перешлите в чат токен, который отображается'
+                                                 f'в текущем окне браузера')
+    async with state.proxy() as data:  # set the wait state
+        data['token_ya_disk'] = message.text
+        ya_auth_msg = yandexDisk.auth_ya_disk(data['token_ya_disk'])  # auth
+    await bot.send_message(message.from_user.id, ya_auth_msg)  # auth result
+    await state.finish()
+
+
+@dp.callback_query_handler(lambda c: c.data == 'select_vk_scope')
+async def callback_select_vk_scope(callback_query: types.CallbackQuery):
+    # display scopes list
+    IK_scopes_list = InlineKeyboardMarkup()
+    scopes_str = downloadVk.scopes.split(',')
+    for scope in scopes_str:
+        IK_scopes_list.add(InlineKeyboardButton(f'{scope}', callback_data=f'{scope}'))
+
+    await bot.send_message(callback_query.from_user.id, 'Выберите что необходимо скачать',
+                           reply_markup=IK_scopes_list)
 
 
 @dp.callback_query_handler(lambda c: c.data == 'photos')
@@ -145,6 +155,11 @@ async def callback_save_album(callback_query: types.CallbackQuery):
                 downloadVk.save_photo_by_id(int(sel_album))
                 await bot.send_message(callback_query.from_user.id,
                                        text=f'Альбом {downloadVk.display_albums_title(item)} загружен')
+
+                """if downloadVk.loading_complete:
+                    for photo in downloadVk.photo_url:
+                        await bot.send_photo(callback_query.from_user.id, photo)
+                downloadVk.photo_url.clear()"""
                 break
     except Exception as e:
         await bot.send_message(callback_query.from_user.id, text=f'Ошибка {e.args}')

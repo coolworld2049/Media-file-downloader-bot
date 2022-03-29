@@ -1,4 +1,3 @@
-import configparser
 import json
 import os
 import random
@@ -8,22 +7,17 @@ import requests
 from virtualenv.util.path import Path
 from tqdm import tqdm
 
+from data import ConfigStorage
+
 
 class DownloadVk:
     def __init__(self):
         self.vk_app_id = 8109852
         self.scopes = "photos,video,notes,docs"
         self.user_authorized = False
-        if Path('/Social-media-file-downloader/config.ini').exists():
-            Path('/Social-media-file-downloader/config.ini').rmdir()
-
-        self.config = configparser.ConfigParser()
-        self.config.read('config.ini')
-        self.config['VK_ACC_DATA'] = {'vk_app_id': self.vk_app_id,
-                                      'vk_token': '',
-                                      'token_expires_in': '',
-                                      'vk_user_id': ''}
-        self.config.write(open("config.ini", "w"))
+        self.photo_url = []
+        self.loading_complete = False
+        self.config = ConfigStorage.configParser
 
     # authorization in user account
 
@@ -34,7 +28,7 @@ class DownloadVk:
 
         return oAuth_link
 
-    def auth_vk(self, vk_response_url):
+    def auth_vk(self, vk_response_url: str):
         try:
             split_url = vk_response_url.split('#').copy()
             split_var = split_url[1].split('&')
@@ -48,7 +42,7 @@ class DownloadVk:
                 self.config.set("VK_ACC_DATA", "vk_user_id", user_id[0])
                 self.config.write(open("config.ini", "w"))
                 self.user_authorized = True
-                return "Вы авторизованы!"
+                return "Вы авторизованы в Vk!"
         except Exception as e:
             self.user_authorized = False
             return f"Ошибка авторизации!{e.args}"
@@ -208,8 +202,10 @@ class DownloadVk:
                             try:
                                 ownerAndPhotoId = self.get_photos_by_id(albums_with_photos_list[i][1])
                                 time.sleep(0.1)
-                                print(ownerAndPhotoId['response'][0]['sizes'][-1]['url'])
-                                vk_api = requests.get(ownerAndPhotoId['response'][0]['sizes'][-1]['url'])
+                                one_photo_url = ownerAndPhotoId['response'][0]['sizes'][-1]['url']
+                                self.photo_url.append(one_photo_url)
+                                print(one_photo_url)
+                                vk_api = requests.get(one_photo_url)
                                 album_title = self.display_albums_title(selected_album_id)
                                 filename = album_title + str(random.randint(1153, 546864))
                                 with open(f"C:/Users/R/PycharmProjects/Social-media-file-downloader/Saved photos/"
@@ -220,6 +216,8 @@ class DownloadVk:
                                 continue
                         else:
                             continue
+                    self.loading_complete = True
+
             except Exception as e:
                 return e.args
 
