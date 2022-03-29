@@ -38,7 +38,7 @@ class DownloadVk:
                 user_id = split_var[2].split('=')[-1:]
 
                 self.config.set("VK_ACC_DATA", "vk_token", access_token[0])
-                self.config.set("VK_ACC_DATA", "token_expires_in", expires_in[0])
+                self.config.set("VK_ACC_DATA", "vk_token_expires_in", expires_in[0])
                 self.config.set("VK_ACC_DATA", "vk_user_id", user_id[0])
                 self.config.write(open("config.ini", "w"))
                 self.user_authorized = True

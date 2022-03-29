@@ -14,6 +14,8 @@ class YandexDisk:
                         'Authorization': f'OAuth {self.Y_API_TOKEN}'}
         self.authorized = False
 
+    # authorization
+
     def auth_ya_disk_send_link(self):
         link = f'https://oauth.yandex.ru/authorize?response_type=token&client_id={self.Y_APP_ID}'
         return link
@@ -26,6 +28,8 @@ class YandexDisk:
         else:
             self.authorized = False
             return 'Ошибка авторизации в Яндекс диске!'
+
+    # actions with user disk
 
     def create_folder(self, path):
         requests.put(f'{self.URL}?path={path}', headers=self.headers)

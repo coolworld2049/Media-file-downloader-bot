@@ -1,4 +1,5 @@
 import logging
+import surrogates
 
 from aiogram import Bot, Dispatcher, types
 from aiogram.contrib.fsm_storage.memory import MemoryStorage
@@ -64,7 +65,7 @@ async def send_help(message: types.Message):
 async def send_select(message: types.Message):
     # display source list
     IK_select_source = InlineKeyboardMarkup()
-    IK_select_source.add(InlineKeyboardButton('Vk', callback_data='buttonVk'),
+    IK_select_source.add(InlineKeyboardButton(text=surrogates.decode('\ud83e\udde0') + 'Vk', callback_data='buttonVk'),
                          InlineKeyboardButton('YouTube', callback_data='buttonYt'))
     await bot.send_message(message.from_user.id, text='Выберите соц. сеть',
                            reply_markup=IK_select_source)
@@ -114,6 +115,10 @@ async def message_auth_ya_disk(message: types.Message, state: FSMContext):
         ya_auth_msg = yandexDisk.auth_ya_disk(data['token_ya_disk'])  # auth
     await bot.send_message(message.from_user.id, ya_auth_msg)  # auth result
     await state.finish()
+
+    if yandexDisk.authorized:
+        yandexDisk.create_folder('hello world')
+        yandexDisk.upload_file(r"C:\Users\R\Downloads\Снимок экрана 2022-03-28 184754.png", 'hello world/images.rar')
 
 
 @dp.callback_query_handler(lambda c: c.data == 'select_vk_scope')
