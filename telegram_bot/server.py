@@ -5,7 +5,7 @@ from aiogram import Bot, Dispatcher, types
 from aiogram.contrib.fsm_storage.memory import MemoryStorage
 from aiogram.contrib.middlewares.logging import LoggingMiddleware
 from aiogram.dispatcher import FSMContext
-from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardMarkup
 
 from cloud_storage.YandexDisk import YandexDisk
 from data import ConfigStorage
@@ -73,24 +73,27 @@ async def send_select(message: types.Message):
 
 @dp.callback_query_handler(lambda c: c.data == 'buttonVk')
 async def callback_button_vk(callback_query: types.CallbackQuery):
-    IK_button_vk = InlineKeyboardMarkup()
-    IK_button_vk.add(InlineKeyboardButton('Авторизация', url=downloadVk.send_auth_link()))
-    await bot.send_message(callback_query.from_user.id,
-                           text=f'Для загрузки данных из вашего аккаунта требуется авторизация\n'
-                                f'Нажмите на кнопку и скопируйте АДРЕС из адресной\n'
-                                f'строки в открывшемся окне браузера в чат:\n',
-                           reply_markup=IK_button_vk)
-    await MyStates.callback_auth_link.set()  # start FSM machine. state: waiting for user message
+    if not downloadVk.user_authorized and not yandexDisk.user_authorized:
+        IK_button_vk = InlineKeyboardMarkup()
+        IK_button_vk.add(InlineKeyboardButton('Авторизация', url=downloadVk.send_auth_link()))
+        await bot.send_message(callback_query.from_user.id,
+                               text=f'Для загрузки данных из вашего аккаунта требуется авторизация'
+                                    f' Нажмите на кнопку и скопируйте АДРЕС из адресной'
+                                    f' строки в открывшемся окне браузера в чат:',
+                               reply_markup=IK_button_vk)
+        await MyStates.callback_auth_link.set()  # start FSM machine. state: waiting for user message
+    else:
+        await bot.send_message(callback_query.from_user.id, text='Вы уже авторизовались!')
 
 
 def auth_ya_disk():
     IK_ya_auth = InlineKeyboardMarkup()
     IK_ya_auth.add(InlineKeyboardButton('Yandex Disk', url=yandexDisk.auth_ya_disk_send_link(),
                                         callback_data='ya_disk'))
-    msg = 'Данные будут загружены в отдельную папку\n' \
-          'в вашем облачном хранилище Yandex Disk.\n' \
-          'Для авторизации нажмите на кнопку и скопируйте ТОКЕН\n' \
-          'из адресной строки в открывшемся окне браузера в чат\n'
+    msg = 'Данные будут загружены в отдельную папку' \
+          ' в вашем облачном хранилище Yandex Disk.' \
+          ' Для авторизации нажмите на кнопку и скопируйте ТОКЕН' \
+          ' из адресной строки в открывшемся окне браузера в чат'
     return msg, IK_ya_auth
 
 
@@ -101,9 +104,10 @@ async def message_auth_vk(message: types.Message, state: FSMContext):
         vK_auth_msg = downloadVk.auth_vk(data['callback_auth_link'])  # auth
         await bot.send_message(message.from_user.id, vK_auth_msg)  # auth result
 
-    if downloadVk.user_authorized:
-        msg, IK_ya_auth = auth_ya_disk()
-        await bot.send_message(message.from_user.id, text=msg, reply_markup=IK_ya_auth)
+    # send a link to the user for auth in yandex disk
+    msg, IK_ya_auth = auth_ya_disk()
+    await bot.send_message(message.from_user.id, text=msg, reply_markup=IK_ya_auth)
+
     await state.finish()
     await MyStates.auth_ya_disk.set()  # start FSM machine. state: waiting for user message
 
@@ -116,21 +120,30 @@ async def message_auth_ya_disk(message: types.Message, state: FSMContext):
     await bot.send_message(message.from_user.id, ya_auth_msg)  # auth result
     await state.finish()
 
-    if yandexDisk.authorized:
-        yandexDisk.create_folder('hello world')
-        yandexDisk.upload_file(r"C:\Users\R\Downloads\Снимок экрана 2022-03-28 184754.png", 'hello world/images.rar')
+    if downloadVk.user_authorized and yandexDisk.user_authorized:
+        IK_continue_vk, msg = continue_action('continue_on_vk')
+        await bot.send_message(message.from_user.id, text=msg, reply_markup=IK_continue_vk)
 
 
-@dp.callback_query_handler(lambda c: c.data == 'select_vk_scope')
-async def callback_select_vk_scope(callback_query: types.CallbackQuery):
-    # display scopes list
-    IK_scopes_list = InlineKeyboardMarkup()
-    scopes_str = downloadVk.scopes.split(',')
-    for scope in scopes_str:
-        IK_scopes_list.add(InlineKeyboardButton(f'{scope}', callback_data=f'{scope}'))
+def continue_action(command: str):
+    IK_continue_vk = ReplyKeyboardMarkup(one_time_keyboard=True,
+                                         resize_keyboard=True).add(f'/{command}')
+    msg = f'Теперь вы можете посмотреть что можно скачать из вашего аккаунта Vk.' \
+          f' Нажмите /{command}'
+    return IK_continue_vk, msg
 
-    await bot.send_message(callback_query.from_user.id, 'Выберите что необходимо скачать',
-                           reply_markup=IK_scopes_list)
+
+@dp.message_handler(commands=['continue_on_vk'])
+async def message_select_vk_scope(message: types.Message):
+    if downloadVk.user_authorized and yandexDisk.user_authorized:
+        # display scopes list
+        IK_scopes_list = InlineKeyboardMarkup()
+        scopes_str = downloadVk.scopes.split(',')
+        for scope in scopes_str:
+            IK_scopes_list.add(InlineKeyboardButton(f'{scope}', callback_data=f'{scope}'))
+
+        await bot.send_message(message.from_user.id, 'Выберите что необходимо скачать',
+                               reply_markup=IK_scopes_list)
 
 
 @dp.callback_query_handler(lambda c: c.data == 'photos')

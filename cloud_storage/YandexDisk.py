@@ -12,7 +12,7 @@ class YandexDisk:
         self.headers = {'Content-Type': 'application/json',
                         'Accept': 'application/json',
                         'Authorization': f'OAuth {self.Y_API_TOKEN}'}
-        self.authorized = False
+        self.user_authorized = False
 
     # authorization
 
@@ -23,10 +23,10 @@ class YandexDisk:
     def auth_ya_disk(self, ya_token: str):
         if len(ya_token) == 39:
             self.config.set("YA_DISK_DATA", "Y_API_TOKEN", ya_token)
-            self.authorized = True
+            self.user_authorized = True
             return 'Вы успешно авторизовались в Яндекс диске!'
         else:
-            self.authorized = False
+            self.user_authorized = False
             return 'Ошибка авторизации в Яндекс диске!'
 
     # actions with user disk

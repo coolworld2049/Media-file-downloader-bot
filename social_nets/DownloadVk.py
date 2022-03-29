@@ -15,7 +15,7 @@ class DownloadVk:
         self.vk_app_id = 8109852
         self.scopes = "photos,video,notes,docs"
         self.user_authorized = False
-        self.photo_url = []
+        self.photo_url_list = []
         self.loading_complete = False
         self.config = ConfigStorage.configParser
 
@@ -202,15 +202,16 @@ class DownloadVk:
                             try:
                                 ownerAndPhotoId = self.get_photos_by_id(albums_with_photos_list[i][1])
                                 time.sleep(0.1)
-                                one_photo_url = ownerAndPhotoId['response'][0]['sizes'][-1]['url']
-                                self.photo_url.append(one_photo_url)
-                                print(one_photo_url)
-                                vk_api = requests.get(one_photo_url)
+                                self.photo_url_list = ownerAndPhotoId['response'][0]['sizes'][-1]['url']
+
+                                """self.photo_url.append(photo_url_list)
+                                print(photo_url_list)
+                                vk_api = requests.get(photo_url_list)
                                 album_title = self.display_albums_title(selected_album_id)
                                 filename = album_title + str(random.randint(1153, 546864))
                                 with open(f"C:/Users/R/PycharmProjects/Social-media-file-downloader/Saved photos/"
                                           f"{filename}.jpg", "wb") as save_image:
-                                    save_image.write(vk_api.content)
+                                    save_image.write(vk_api.content)"""
                             except requests.exceptions.RequestException:
                                 time.sleep(0.5)
                                 continue
