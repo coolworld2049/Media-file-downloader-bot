@@ -5,7 +5,7 @@ is a telegram bot that loads user data.
 Features
 --------
 Data storage location:
- - Loading data into the user's Yandex disk
+ - Loading data into Yandex disk user VK
 Vk:
   - Authorization by token
   - Download user's albums
