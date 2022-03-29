@@ -76,13 +76,24 @@ async def callback_button_vk(callback_query: types.CallbackQuery):
     IK_button_vk.add(InlineKeyboardButton('Авторизация', url=downloadVk.send_auth_link()))
     await bot.send_message(callback_query.from_user.id,
                            text=f'Для загрузки данных из вашего аккаунта требуется авторизация\n'
-                                f'Нажмите на ссылку и скопируйте адрес из адресной\n'
+                                f'Нажмите на кнопку и скопируйте АДРЕС из адресной\n'
                                 f'строки в открывшемся окне браузера в чат:\n',
                            reply_markup=IK_button_vk)
     await MyStates.callback_auth_link.set()  # start FSM machine. state: waiting for user message
 
 
-@dp.message_handler(state=MyStates.callback_auth_link, content_types=types.ContentTypes.TEXT)
+def auth_ya_disk():
+    IK_ya_auth = InlineKeyboardMarkup()
+    IK_ya_auth.add(InlineKeyboardButton('Yandex Disk', url=yandexDisk.auth_ya_disk_send_link(),
+                                        callback_data='ya_disk'))
+    msg = 'Данные будут загружены в отдельную папку\n' \
+          'в вашем облачном хранилище Yandex Disk.\n' \
+          'Для авторизации нажмите на кнопку и скопируйте ТОКЕН\n' \
+          'из адресной строки в открывшемся окне браузера в чат\n'
+    return msg, IK_ya_auth
+
+
+@dp.message_handler(state=MyStates.callback_auth_link)
 async def message_auth_vk(message: types.Message, state: FSMContext):
     async with state.proxy() as data:  # set the wait state
         data['callback_auth_link'] = message.text
@@ -93,22 +104,11 @@ async def message_auth_vk(message: types.Message, state: FSMContext):
         msg, IK_ya_auth = auth_ya_disk()
         await bot.send_message(message.from_user.id, text=msg, reply_markup=IK_ya_auth)
     await state.finish()
+    await MyStates.auth_ya_disk.set()  # start FSM machine. state: waiting for user message
 
 
-def auth_ya_disk():
-    IK_ya_auth = InlineKeyboardMarkup().add(InlineKeyboardButton('Yandex Disk',
-                                                                 url=yandexDisk.auth_ya_disk_send_link(),
-                                                                 callback_data='ya_disk'))
-    msg = 'Данные будут загружены в отдельную папку\n' \
-          'в вашем облачном хранилище Yandex Disk.\n' \
-          'Для авторизации перейдите по ссылке\n'
-    return msg, IK_ya_auth
-
-
-@dp.message_handler(lambda c: c.data == 'ya_disk', state=MyStates.token_ya_disk, content_types=types.ContentTypes.TEXT)
+@dp.message_handler(state=MyStates.auth_ya_disk)
 async def message_auth_ya_disk(message: types.Message, state: FSMContext):
-    await bot.send_message(message.from_user.id, f'Перешлите в чат токен, который отображается'
-                                                 f'в текущем окне браузера')
     async with state.proxy() as data:  # set the wait state
         data['token_ya_disk'] = message.text
         ya_auth_msg = yandexDisk.auth_ya_disk(data['token_ya_disk'])  # auth

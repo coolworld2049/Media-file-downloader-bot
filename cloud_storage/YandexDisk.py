@@ -19,7 +19,7 @@ class YandexDisk:
         return link
 
     def auth_ya_disk(self, ya_token: str):
-        if len(ya_token) == 64:
+        if len(ya_token) == 39:
             self.config.set("YA_DISK_DATA", "Y_API_TOKEN", ya_token)
             self.authorized = True
             return 'Вы успешно авторизовались в Яндекс диске!'
