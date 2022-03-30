@@ -28,6 +28,15 @@ MyStates = States.States
 dp = Dispatcher(bot, storage=MemoryStorage())
 dp.middleware.setup(LoggingMiddleware())
 
+
+async def on_startup_webhook(dispatcher: Dispatcher):
+    await bot.set_webhook(WEBHOOK_URL, drop_pending_updates=True)
+
+
+async def on_shutdown_webhook(dispatcher: Dispatcher):
+    await bot.delete_webhook()
+
+
 # ---Webhooks
 HEROKU_APP_NAME = config.get("BOT_DATA", "HEROKU_APP_NAME")
 
