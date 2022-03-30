@@ -16,5 +16,5 @@ YouTube:
 --------
 Start app
 --------
-- start_polling.py - local launch
-- bot.py - running on heroku hosting
+- app.py - local launch
+- deploy/cloud_server.py - running on heroku hosting
