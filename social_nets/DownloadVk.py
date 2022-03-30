@@ -13,7 +13,7 @@ from data import ConfigStorage
 class DownloadVk:
     def __init__(self):
         self.vk_app_id = 8109852
-        self.scopes = "photos,video,notes,docs"
+        self.scopes = "photos,docs"
         self.user_authorized = False
         self.photo_url_list = []
         self.loading_complete = False

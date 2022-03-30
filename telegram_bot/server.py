@@ -120,6 +120,7 @@ async def message_auth_ya_disk(message: types.Message, state: FSMContext):
     await bot.send_message(message.from_user.id, ya_auth_msg)  # auth result
     await state.finish()
 
+    # actions after full authorization
     if downloadVk.user_authorized and yandexDisk.user_authorized:
         IK_continue_vk, msg = continue_action('continue_on_vk')
         await bot.send_message(message.from_user.id, text=msg, reply_markup=IK_continue_vk)
@@ -150,15 +151,12 @@ async def message_select_vk_scope(message: types.Message):
 async def callback_photos(callback_query: types.CallbackQuery):
     # display albums list
     IK_albums_list = InlineKeyboardMarkup()
-    if downloadVk.user_authorized:
-        album_list = downloadVk.display_albums()
-        for a_id, title in album_list:
-            IK_albums_list.add(InlineKeyboardButton(f'{title}', callback_data=str(a_id)))
-        await bot.send_message(callback_query.from_user.id,
-                               text='Список фотоальбомов, доступных для скачивания',
-                               reply_markup=IK_albums_list)
-    else:
-        await bot.send_message(callback_query.from_user.id, text='Вы не авторизованы')
+    album_list = downloadVk.display_albums()
+    for a_id, title in album_list:
+        IK_albums_list.add(InlineKeyboardButton(f'{title}', callback_data=str(a_id)))
+    await bot.send_message(callback_query.from_user.id,
+                           text='Список фотоальбомов, доступных для скачивания',
+                           reply_markup=IK_albums_list)
 
 
 @dp.callback_query_handler(lambda c: c.data)
