@@ -1,42 +1,20 @@
-import logging
 import surrogates
-
-from aiogram import Bot, Dispatcher, types
-from aiogram.contrib.fsm_storage.memory import MemoryStorage
-from aiogram.contrib.middlewares.logging import LoggingMiddleware
+from aiogram import types, Dispatcher
 from aiogram.dispatcher import FSMContext
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardMarkup
 
-from cloud_storage.YandexDisk import YandexDisk
-from data import ConfigStorage
-from social_nets.DownloadVk import DownloadVk
-from states import States
+from telegram_bot.core import MyStates, yandexDisk, downloadVk, bot, dp
 
-# ---vk_api
-downloadVk = DownloadVk()
-config = ConfigStorage.configParser
 
-# ---ya_disk_api
-yandexDisk = YandexDisk()
+def register_handlers_main(dp: Dispatcher):
+    dp.register_message_handler(send_start, commands="start")
+    dp.register_message_handler(send_help, commands="help")
+    dp.register_message_handler(send_select, commands="select")
 
-# ---Bot
-logging.basicConfig(level=logging.INFO)
+    dp.register_callback_query_handler(callback_button_vk, lambda c: c.data == 'buttonVk')
 
-BOT_TOKEN = config["BOT_DATA"]["BOT_TOKEN"]
-bot = Bot(token=BOT_TOKEN)
-MyStates = States.States
-dp = Dispatcher(bot, storage=MemoryStorage())
-dp.middleware.setup(LoggingMiddleware())
-
-# ---WEBHOOKS
-HEROKU_APP_NAME = config.get("BOT_DATA", "HEROKU_APP_NAME")
-
-WEBHOOK_HOST = f'https://{HEROKU_APP_NAME}.herokuapp.com'
-WEBHOOK_PATH = f'/webhook/{BOT_TOKEN}'
-WEBHOOK_URL = f'{WEBHOOK_HOST}{WEBHOOK_PATH}'
-
-WEBAPP_HOST = '0.0.0.0'
-WEBAPP_PORT = config.get("BOT_DATA", "WEBAPP_PORT")
+    dp.register_message_handler(message_auth_vk, state=MyStates.callback_auth_link)
+    dp.register_message_handler(message_auth_ya_disk, state=MyStates.auth_ya_disk)
 
 
 @dp.message_handler(commands=['start'])
@@ -132,50 +110,3 @@ def continue_action(command: str):
     msg = f'Теперь вы можете посмотреть что можно скачать из вашего аккаунта Vk.' \
           f' Нажмите /{command}'
     return IK_continue_vk, msg
-
-
-@dp.message_handler(commands=['continue_on_vk'])
-async def message_select_vk_scope(message: types.Message):
-    if downloadVk.user_authorized and yandexDisk.user_authorized:
-        # display scopes list
-        IK_scopes_list = InlineKeyboardMarkup()
-        scopes_str = downloadVk.scopes.split(',')
-        for scope in scopes_str:
-            IK_scopes_list.add(InlineKeyboardButton(f'{scope}', callback_data=f'{scope}'))
-
-        await bot.send_message(message.from_user.id, 'Выберите что необходимо скачать',
-                               reply_markup=IK_scopes_list)
-
-
-@dp.callback_query_handler(lambda c: c.data == 'photos')
-async def callback_photos(callback_query: types.CallbackQuery):
-    # display albums list
-    IK_albums_list = InlineKeyboardMarkup()
-    album_list = downloadVk.display_albums()
-    for a_id, title in album_list:
-        IK_albums_list.add(InlineKeyboardButton(f'{title}', callback_data=str(a_id)))
-    await bot.send_message(callback_query.from_user.id,
-                           text='Список фотоальбомов, доступных для скачивания',
-                           reply_markup=IK_albums_list)
-
-
-@dp.callback_query_handler(lambda c: c.data)
-async def callback_save_album(callback_query: types.CallbackQuery):
-    try:
-        items = downloadVk.display_albums_id()
-        sel_album = callback_query.data
-        for item in items:
-            if item == int(sel_album):
-                await bot.send_message(callback_query.from_user.id,
-                                       text=f'Загрузка альбома {downloadVk.display_albums_title(item)}')
-                downloadVk.save_photo_by_id(int(sel_album))
-                await bot.send_message(callback_query.from_user.id,
-                                       text=f'Альбом {downloadVk.display_albums_title(item)} загружен')
-
-                """if downloadVk.loading_complete:
-                    for photo in downloadVk.photo_url:
-                        await bot.send_photo(callback_query.from_user.id, photo)
-                downloadVk.photo_url.clear()"""
-                break
-    except Exception as e:
-        await bot.send_message(callback_query.from_user.id, text=f'Ошибка {e.args}')
