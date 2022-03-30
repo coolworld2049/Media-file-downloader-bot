@@ -1,11 +1,11 @@
 Media-downloader
 --------
-is a telegram bot that loads user data.
+is a telegram bot that loads user files.
 
 Features
 --------
 Data storage location:
- - Loading data into the user's Yandex disk
+ - Loading files into Yandex disk user VK
 Vk:
   - Authorization by token
   - Download user's albums
