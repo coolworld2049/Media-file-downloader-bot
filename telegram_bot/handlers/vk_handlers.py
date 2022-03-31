@@ -38,38 +38,45 @@ async def callback_albums_list(callback_query: types.CallbackQuery):
     await bot.send_message(callback_query.from_user.id,
                            text='Список фотоальбомов, доступных для скачивания',
                            reply_markup=IK_albums_list)
+
     await MyStates.save_album.set()
 
 
 @dp.callback_query_handler(state=MyStates.save_album)
 async def callback_save_album(callback_query: types.CallbackQuery, state: FSMContext):
     async with state.proxy() as data:
-        data['callback_selected_album_id'] = callback_query.data
-        callback_selected_album_id = int(data['callback_selected_album_id'])
-    await state.finish()
+        if callback_query.data.isdigit():
+            data['callback_selected_album_id'] = callback_query.data
+            callback_selected_album_id = int(data['callback_selected_album_id'])
+            await state.finish()
 
-    items = downloadVk.display_albums_id()
-    for item in items:
-        if item == callback_selected_album_id:
-            await bot.send_message(callback_query.from_user.id, text=f'Загрузка альбома')
-            downloadVk.save_photo_by_id(callback_selected_album_id)
+            items = downloadVk.display_albums_id()
+            for item in items:
+                if item == callback_selected_album_id:
+                    await bot.send_message(callback_query.from_user.id, text=f'Загрузка альбома')
+                    downloadVk.save_photo_by_id(callback_selected_album_id)
 
-            if downloadVk.photo_upload_completed:
-                await bot.send_message(callback_query.from_user.id, text='Альбом загружен')
+                    if downloadVk.photo_upload_completed:
+                        await bot.send_message(callback_query.from_user.id, text='Альбом загружен')
 
-                RK_goto_select_album = ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
-                RK_goto_select_album.add(KeyboardButton('Перейти к выбору области загрузки'))
-                await bot.send_message(callback_query.from_user.id, text='.',
-                                       reply_markup=RK_goto_select_album)
-                await MyStates.select_vk_scope.set()
+                        RK_goto_select_album = ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
+                        RK_goto_select_album.add(KeyboardButton('Перейти к выбору области загрузки'))
+                        await bot.send_message(callback_query.from_user.id, text='.',
+                                               reply_markup=RK_goto_select_album)
+                        await MyStates.select_vk_scope.set()
+                    else:
+                        await bot.send_message(callback_query.from_user.id, text='При загрузке альбома возникла ошибка')
+                        await MyStates.save_album
+                    break
+        else:
+            RK_goto_select_album = ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
+            RK_goto_select_album.add(KeyboardButton('Перейти к выбору области загрузки'))
+            await bot.send_message(callback_query.from_user.id,
+                                   text='Назад', reply_markup=RK_goto_select_album)
+            await state.finish()
+            await MyStates.select_vk_scope.set()
 
-            elif callback_query.data == 'back':
-                await MyStates.select_vk_scope.set()
 
-            else:
-                await bot.send_message(callback_query.from_user.id, text='При загрузке альбома возникла ошибка')
-                await MyStates.save_album
-            break
 
     """# отправка фото в чат max 8 items
     try:
@@ -89,6 +96,10 @@ async def callback_save_docs(callback_query: types.CallbackQuery):
     downloadVk.save_docs()
     if downloadVk.docs_upload_completed:
         await bot.send_message(callback_query.from_user.id, text=f'Документы загружены')
+        RK_goto_select_album = ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
+        RK_goto_select_album.add(KeyboardButton('Перейти к выбору области загрузки'))
+        await bot.send_message(callback_query.from_user.id,
+                               text='Назад', reply_markup=RK_goto_select_album)
         await MyStates.select_vk_scope.set()
     else:
         await MyStates.select_vk_scope.set()
