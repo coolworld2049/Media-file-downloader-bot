@@ -272,4 +272,3 @@ class DownloadVk:
                     self.docs_upload_completed = True
                 else:
                     self.docs_upload_completed = False
-

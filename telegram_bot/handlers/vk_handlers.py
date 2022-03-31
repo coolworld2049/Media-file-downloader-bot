@@ -76,8 +76,6 @@ async def callback_save_album(callback_query: types.CallbackQuery, state: FSMCon
             await state.finish()
             await MyStates.select_vk_scope.set()
 
-
-
     """# отправка фото в чат max 8 items
     try:
         if downloadVk.photo_upload_completed:
