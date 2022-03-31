@@ -1,22 +1,22 @@
 import json
-import os
-import random
 import time
 
 import requests
-from virtualenv.util.path import Path
-from tqdm import tqdm
 
 from data import ConfigStorage
 
 
 class DownloadVk:
     def __init__(self):
-        self.vk_app_id = 8109852
-        self.scopes = "photos,docs"
+        self.vk_app_id: int = 8109852
+        self.scopes: str = "photos,docs"
         self.user_authorized = False
+        self.check_photo_list = []
+        self.check_docs_list = []
         self.photo_url_list = []
-        self.loading_complete = False
+        self.docs_url_list = []
+        self.photo_upload_completed = False
+        self.docs_upload_completed = False
         self.config = ConfigStorage.configParser
 
     # authorization in user account
@@ -45,7 +45,7 @@ class DownloadVk:
                 return "Вы авторизованы в Vk!"
         except Exception as e:
             self.user_authorized = False
-            return f"Ошибка авторизации!{e.args}"
+            return f"Ошибка авторизации в Vk! {e.args}"
 
     # get available scopes
 
@@ -73,7 +73,7 @@ class DownloadVk:
 
     # get JSON file with PHOTOS data
 
-    def get_photos_by_id(self, photo_id):
+    def get_photo_by_id(self, photo_id):
         if self.user_authorized:
             self.config.read('config.ini')
             api = requests.get("https://api.vk.com/method/photos.getById", params={
@@ -160,13 +160,11 @@ class DownloadVk:
     def display_albums_title(self, album_id: int):
         try:
             if self.user_authorized:
-                json_data = self.get_albums()
-                albums_title = []
-                for albums in json_data["response"]["items"]:
-                    albums_title.append([albums["id"], albums["title"]])
-                for i in range(len(albums_title)):
-                    if albums_title[i][0] == album_id:
-                        return str(albums_title[0][i])
+                albums_id_and_title = self.display_albums()
+                for i in range(len(albums_id_and_title)):
+                    if albums_id_and_title[i][0] == album_id:
+                        ret_str = str(albums_id_and_title[0][i])
+                        return ret_str
         except Exception as e:
             return e.args
 
@@ -184,10 +182,12 @@ class DownloadVk:
     # downloading PHOTOS by album
 
     def save_photo_by_id(self, selected_album_id: int):
+        start = time.perf_counter()
+
         # 100 photo per 1 min
         if self.user_authorized:
             try:
-                Path(os.curdir + "/Saved photos").mkdir(parents=True, exist_ok=True, mode=0o666)
+                # Path(os.curdir + "/Saved photos").mkdir(parents=True, exist_ok=True, mode=0o666)
                 albums_with_photos_list = self.albums_with_photos()
                 ownerAndPhotoId_list = []
 
@@ -196,56 +196,80 @@ class DownloadVk:
                     if albums_with_photos_list[i][0] == selected_album_id:
                         ownerAndPhotoId_list.append(albums_with_photos_list[i][1])
 
-                for _ in tqdm(range(len(ownerAndPhotoId_list))):
-                    for i in range(len(albums_with_photos_list)):
-                        if albums_with_photos_list[i][0] == selected_album_id:
-                            try:
-                                ownerAndPhotoId = self.get_photos_by_id(albums_with_photos_list[i][1])
-                                time.sleep(0.1)
-                                self.photo_url_list = ownerAndPhotoId['response'][0]['sizes'][-1]['url']
+                for i in range(len(albums_with_photos_list)):
+                    if albums_with_photos_list[i][0] == selected_album_id:
+                        try:
+                            time.sleep(0.3)
+                            ownerAndPhotoId = self.get_photo_by_id(albums_with_photos_list[i][1])
+                            one_photo_url = ownerAndPhotoId['response'][0]['sizes'][-1]['url']
+                            self.photo_url_list.append(one_photo_url)
+                            self.check_photo_list.append(one_photo_url)
+                            print(one_photo_url, sep='\n')
 
-                                """self.photo_url.append(photo_url_list)
-                                print(photo_url_list)
-                                vk_api = requests.get(photo_url_list)
-                                album_title = self.display_albums_title(selected_album_id)
-                                filename = album_title + str(random.randint(1153, 546864))
-                                with open(f"C:/Users/R/PycharmProjects/Social-media-file-downloader/Saved photos/"
-                                          f"{filename}.jpg", "wb") as save_image:
-                                    save_image.write(vk_api.content)"""
-                            except requests.exceptions.RequestException:
-                                time.sleep(0.5)
-                                continue
-                        else:
+                            """self.photo_url.append(photo_url_list)
+                            print(photo_url_list)
+                            vk_api = requests.get(photo_url_list)
+                            album_title = self.display_albums_title(selected_album_id)
+                            filename = album_title + str(random.randint(1153, 546864))
+                            with open(f"C:/Users/R/PycharmProjects/Social-media-file-downloader/Saved photos/"
+                                      f"{filename}.jpg", "wb") as save_image:
+                                save_image.write(vk_api.content)"""
+                        except requests.exceptions.RequestException:
+                            time.sleep(0.5)
                             continue
-                    self.loading_complete = True
+                    else:
+                        continue
+
+            except Exception as e:
+                print(e.args)
+
+            finally:
+                print(self.photo_url_list, sep='\n')
+
+                if self.photo_url_list == self.check_photo_list:
+                    self.photo_upload_completed = True
+                else:
+                    self.photo_upload_completed = False
+
+                end = time.perf_counter()
+                print(f'the function save_photo_by_id() was executed for {end - start:0.4f} seconds')
+
+        # downloading DOCS
+
+    def save_docs(self):
+        if self.user_authorized:
+            try:
+                # Path(os.curdir + "/Saved docs").mkdir(parents=True, exist_ok=True, mode=0o666)
+                docs = self.get_docs()
+                for doc in docs['response']['items']:
+                    try:
+                        one_doc_url = doc['url']
+                        self.docs_url_list.append(one_doc_url)
+                        self.check_docs_list.append(one_doc_url)
+                        print(one_doc_url, sep='\n')
+
+                        """"
+                        time.sleep(0.1)
+                        api = requests.get(doc["url"])
+                        filename = random.randint(1153, 5468645)
+                        with open(f"Saved docs/{filename}." + docs["ext"], "wb") as write_file:
+                            write_file.write(api.content)
+                        i += 1
+                        print(f"{i}/{docs_count}")
+                        """""
+
+                    except requests.exceptions:
+                        time.sleep(0.5)
+                        continue
 
             except Exception as e:
                 return e.args
 
-    # downloading DOCS
+            finally:
+                print(self.docs_url_list, sep='\n')
 
-    def save_docs(self):
-        if self.user_authorized:
-            Path(os.curdir + "/Saved docs").mkdir(parents=True, exist_ok=True, mode=0o666)
-            data = self.get_docs()
-            count = 100
-            items_count = data["response"]["count"]
-            i = 0
-            while i <= data["response"]["count"]:
-                if i != 0:
-                    data = self.get_docs(count=count)
+                if self.docs_url_list == self.check_docs_list:
+                    self.docs_upload_completed = True
+                else:
+                    self.docs_upload_completed = False
 
-                for docs in data["response"]["items"]:
-                    docs_url = docs["url"]
-                    filename = random.randint(1153, 5468645)
-                    try:
-                        time.sleep(0.1)
-                        api = requests.get(docs_url)
-                        with open(f"Saved docs/{filename}." + docs["ext"], "wb") as write_file:
-                            write_file.write(api.content)
-                        i += 1
-                        print(f"{i}/{items_count}")
-                    except requests.exceptions:
-                        print("Server connection")
-                        time.sleep(0.5)
-                        continue
