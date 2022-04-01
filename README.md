@@ -11,6 +11,3 @@ Vk:
   - Download user's albums
   - Download user's documents
 --------
-YouTube:
-  - 
---------
