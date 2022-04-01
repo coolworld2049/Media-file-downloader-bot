@@ -12,9 +12,5 @@ Vk:
   - Download user's documents
 --------
 YouTube:
-  - coming soon
+  - 
 --------
-Start app
---------
-- app.py - local launch
-- deploy/cloud_server.py - running on heroku hosting
