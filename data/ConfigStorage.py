@@ -14,11 +14,10 @@ def create_file():
                                    'token_expires_in': '',
                                    'vk_user_id': ''}
 
-    configParser['BOT_DATA'] = {'BOT_TOKEN': '',
-                                'HEROKU_APP_NAME': 'media-downloader-tg',
-                                'WEBAPP_PORT': 8000}
+    configParser['BOT_DATA'] = {'heroku_app_name': 'media-downloader-tg',
+                                'webapp_port': 8000}
 
-    configParser['YA_DISK_DATA'] = {'Y_API_TOKEN': '',
-                                    'Y_APP_ID': '131f4986553d493184f6a5e5af832174'}
+    configParser['YA_DISK_DATA'] = {'y_api_token': '',
+                                    'y_app_id': '131f4986553d493184f6a5e5af832174'}
 
     configParser.write(open("config.ini", "w"))

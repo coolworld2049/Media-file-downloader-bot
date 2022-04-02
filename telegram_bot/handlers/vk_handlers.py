@@ -1,3 +1,4 @@
+import emoji
 from aiogram import types, Dispatcher
 from aiogram.dispatcher import FSMContext
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardMarkup, KeyboardButton
@@ -18,12 +19,20 @@ async def message_select_vk_scope(message: types.Message, state: FSMContext):
     if downloadVk.user_authorized and yandexDisk.user_authorized:
         # display scopes list
         IK_scopes_list = InlineKeyboardMarkup()
-        scopes_str = downloadVk.scopes.split(',')
-        for scope in scopes_str:
-            IK_scopes_list.add(InlineKeyboardButton(scope, callback_data=scope))
+        scopes_list = downloadVk.scopes.split(',')
+        IK_scopes_list.add(InlineKeyboardButton(emoji.emojize(scopes_list[0] + ' :bridge_at_night:'),
+                                                callback_data=scopes_list[0]))
+        IK_scopes_list.add(InlineKeyboardButton(emoji.emojize(scopes_list[1] + ' :page_facing_up:'),
+                                                callback_data=scopes_list[1]))
 
         await bot.send_message(message.from_user.id, 'Выберите что необходимо скачать',
                                reply_markup=IK_scopes_list)
+
+
+def goto_select_vk_scope():
+    RK_goto_select_album = ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
+    RK_goto_select_album.add(KeyboardButton('Перейти к выбору области загрузки'))
+    return RK_goto_select_album
 
 
 @dp.callback_query_handler(lambda c: c.data == 'photos')
@@ -53,26 +62,28 @@ async def callback_save_album(callback_query: types.CallbackQuery, state: FSMCon
             items = downloadVk.display_albums_id()
             for item in items:
                 if item == callback_selected_album_id:
-                    await bot.send_message(callback_query.from_user.id, text=f'Загрузка альбома')
+                    await bot.send_message(callback_query.from_user.id, text=f'Загрузка альбома из VK')
                     downloadVk.save_photo_by_id(callback_selected_album_id)
 
-                    if downloadVk.photo_upload_completed:
-                        await bot.send_message(callback_query.from_user.id, text='Альбом загружен')
+                    if downloadVk.photo_download_completed:
 
-                        RK_goto_select_album = ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
-                        RK_goto_select_album.add(KeyboardButton('Перейти к выбору области загрузки'))
-                        await bot.send_message(callback_query.from_user.id, text='.',
-                                               reply_markup=RK_goto_select_album)
+                        # uploading photo to Yandex Disk
+                        for photo in downloadVk.photo_url_list:
+                            yandexDisk.create_folder('Saved photo')
+                            path = f'.jpg'
+                            upload_result = yandexDisk.\
+                                upload_file(photo, f'Saved_photo/'
+                                                   f'{downloadVk.display_albums_title(callback_selected_album_id)}', 'jpg')
+                            await bot.send_message(callback_query.from_user.id, text='Загрузка альбома на облако',
+                                                   reply_markup=goto_select_vk_scope())
                         await MyStates.select_vk_scope.set()
                     else:
                         await bot.send_message(callback_query.from_user.id, text='При загрузке альбома возникла ошибка')
-                        await MyStates.save_album
+                        await MyStates.save_album.set()
                     break
         else:
-            RK_goto_select_album = ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
-            RK_goto_select_album.add(KeyboardButton('Перейти к выбору области загрузки'))
-            await bot.send_message(callback_query.from_user.id,
-                                   text='Назад', reply_markup=RK_goto_select_album)
+            await bot.send_message(callback_query.from_user.id, text='Назад',
+                                   reply_markup=goto_select_vk_scope())
             await state.finish()
             await MyStates.select_vk_scope.set()
 
@@ -92,12 +103,9 @@ async def callback_save_album(callback_query: types.CallbackQuery, state: FSMCon
 async def callback_save_docs(callback_query: types.CallbackQuery):
     await bot.send_message(callback_query.from_user.id, text=f'Загрузка документов')
     downloadVk.save_docs()
-    if downloadVk.docs_upload_completed:
-        await bot.send_message(callback_query.from_user.id, text=f'Документы загружены')
-        RK_goto_select_album = ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
-        RK_goto_select_album.add(KeyboardButton('Перейти к выбору области загрузки'))
-        await bot.send_message(callback_query.from_user.id,
-                               text='Назад', reply_markup=RK_goto_select_album)
+    if downloadVk.docs_download_completed:
+        await bot.send_message(callback_query.from_user.id, text='Документы загружены',
+                               reply_markup=goto_select_vk_scope())
         await MyStates.select_vk_scope.set()
     else:
         await MyStates.select_vk_scope.set()

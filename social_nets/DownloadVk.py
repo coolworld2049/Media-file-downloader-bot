@@ -15,9 +15,10 @@ class DownloadVk:
         self.check_docs_list = []
         self.photo_url_list = []
         self.docs_url_list = []
-        self.photo_upload_completed = False
-        self.docs_upload_completed = False
+        self.photo_download_completed = False
+        self.docs_download_completed = False
         self.config = ConfigStorage.configParser
+        self.path_to_config = ConfigStorage.path
 
     # authorization in user account
 
@@ -29,6 +30,8 @@ class DownloadVk:
         return oAuth_link
 
     def auth_vk(self, vk_response_url: str):
+        self.config.read(self.path_to_config)
+
         try:
             split_url = vk_response_url.split('#').copy()
             split_var = split_url[1].split('&')
@@ -50,11 +53,11 @@ class DownloadVk:
     # get available scopes
 
     def get_scopes(self):
+        self.config.read(self.path_to_config)
+
         try:
             if self.user_authorized:
                 scopes_list = []
-                self.config.read('config.ini')
-
                 api = requests.get("https://api.vk.com/method/apps.getScopes", params={
                     'access_token': self.config['VK_ACC_DATA']['vk_token'],
                     'owner_id': 'user',
@@ -74,8 +77,9 @@ class DownloadVk:
     # get JSON file with PHOTOS data
 
     def get_photo_by_id(self, photo_id):
+        self.config.read(self.path_to_config)
+
         if self.user_authorized:
-            self.config.read('config.ini')
             api = requests.get("https://api.vk.com/method/photos.getById", params={
                 'access_token': self.config['VK_ACC_DATA']['vk_token'],
                 'photos': str(self.config['VK_ACC_DATA']['vk_user_id'] + "_" + str(photo_id)),
@@ -84,8 +88,9 @@ class DownloadVk:
             return api.json()
 
     def get_albums(self):
+        self.config.read(self.path_to_config)
+
         if self.user_authorized:
-            self.config.read('config.ini')
             api = requests.get("https://api.vk.com/method/photos.getAlbums", params={
                 'access_token': self.config['VK_ACC_DATA']['vk_token'],
                 'v': 5.131
@@ -93,8 +98,9 @@ class DownloadVk:
             return json.loads(api.text)
 
     def get_albums_count(self):
+        self.config.read(self.path_to_config)
+
         if self.user_authorized:
-            self.config.read('config.ini')
             api = requests.get("https://api.vk.com/method/photos.getAlbums", params={
                 'access_token': self.config['VK_ACC_DATA']['vk_token'],
                 'user_id': self.config['VK_ACC_DATA']['user_id'],
@@ -103,8 +109,9 @@ class DownloadVk:
             return json.loads(api.text)
 
     def get_all_photos(self, offset=0, count=0):
+        self.config.read(self.path_to_config)
+
         if self.user_authorized:
-            self.config.read('config.ini')
             api = requests.get("https://api.vk.com/method/photos.getAll", params={
                 'owner_id': int(self.config['VK_ACC_DATA']['vk_user_id']),
                 'access_token': self.config['VK_ACC_DATA']['vk_token'],
@@ -118,6 +125,8 @@ class DownloadVk:
     # get json file with DOCS data
 
     def get_docs(self, count=0):
+        self.config.read(self.path_to_config)
+
         if self.user_authorized:
             self.config.read('config.ini')
             api = requests.get("https://api.vk.com/method/docs.get", params={
@@ -199,7 +208,7 @@ class DownloadVk:
                 for i in range(len(albums_with_photos_list)):
                     if albums_with_photos_list[i][0] == selected_album_id:
                         try:
-                            time.sleep(0.3)
+                            time.sleep(0.25)
                             ownerAndPhotoId = self.get_photo_by_id(albums_with_photos_list[i][1])
                             one_photo_url = ownerAndPhotoId['response'][0]['sizes'][-1]['url']
                             self.photo_url_list.append(one_photo_url)
@@ -226,10 +235,10 @@ class DownloadVk:
             finally:
                 print(self.photo_url_list, sep='\n')
 
-                if self.photo_url_list == self.check_photo_list:
-                    self.photo_upload_completed = True
+                if len(self.photo_url_list) == len(self.check_photo_list):
+                    self.photo_download_completed = True
                 else:
-                    self.photo_upload_completed = False
+                    self.photo_download_completed = False
 
                 end = time.perf_counter()
                 print(f'the function save_photo_by_id() was executed for {end - start:0.4f} seconds')
@@ -268,7 +277,7 @@ class DownloadVk:
             finally:
                 print(self.docs_url_list, sep='\n')
 
-                if self.docs_url_list == self.check_docs_list:
-                    self.docs_upload_completed = True
+                if len(self.docs_url_list) == len(self.check_docs_list):
+                    self.docs_download_completed = True
                 else:
-                    self.docs_upload_completed = False
+                    self.docs_download_completed = False

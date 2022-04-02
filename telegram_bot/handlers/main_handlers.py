@@ -1,9 +1,10 @@
-import surrogates
+import emoji
 from aiogram import types, Dispatcher
 from aiogram.dispatcher import FSMContext
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardMarkup, KeyboardButton
 
 from telegram_bot.core import MyStates, yandexDisk, downloadVk, bot, dp
+from telegram_bot.handlers import vk_handlers
 
 
 def register_handlers_main(dispatcher: Dispatcher):
@@ -19,12 +20,13 @@ def register_handlers_main(dispatcher: Dispatcher):
 
 @dp.message_handler(commands=['start'])
 async def send_start(message: types.Message):
-    await message.answer('Привет!\n\n'
-                         'Это бот для загрузки ваших  медиафайлов из социальных сетей.\n\n'
-                         'Сейчас доступна загрузка из Vk, YouTube\n\n'
-                         'Список команд:\n'
-                         '\t/select - выбрать соц. сеть\n'
-                         '\t/help - список команд')
+    await bot.send_message(message.from_user.id,
+                           text='Привет!\n\n'
+                                'Это бот для загрузки ваших  медиафайлов из социальных сетей.\n\n'
+                                'Сейчас доступна загрузка из Vk, YouTube\n\n'
+                                'Список команд:\n'
+                                '\t/select - выбрать соц. сеть\n'
+                                '\t/help - список команд')
     await dp.bot.set_my_commands(
         [
             types.BotCommand("start", "Запустить бота"),
@@ -43,8 +45,11 @@ async def send_help(message: types.Message):
 async def send_select(message: types.Message):
     # display source list
     IK_select_source = InlineKeyboardMarkup()
-    IK_select_source.add(InlineKeyboardButton(text=surrogates.decode('\ud83e\udde0') + 'Vk', callback_data='buttonVk'),
-                         InlineKeyboardButton('YouTube', callback_data='buttonYt'))
+    IK_select_source.add(InlineKeyboardButton(text=emoji.emojize(':dizzy: Download from Vk'),
+                                              callback_data='buttonVk'),
+                         InlineKeyboardButton(text=emoji.emojize(':globe_with_meridians: '
+                                                                 'Download from YouTube'),
+                                              callback_data='buttonYt'))
     await bot.send_message(message.from_user.id, text='Выберите соц. сеть',
                            reply_markup=IK_select_source)
 
@@ -117,12 +122,10 @@ async def message_auth_ya_disk(message: types.Message, state: FSMContext):
 
         # actions after vk and ya disk authorization
         if downloadVk.user_authorized and yandexDisk.user_authorized:
-            RK_goto_select_album = ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
-            RK_goto_select_album.add(KeyboardButton('Перейти к выбору области загрузки'))
             await bot.send_message(message.from_user.id,
                                    text=f'Теперь вы можете посмотреть что можно'
                                         f' скачать из вашего аккаунта.',
-                                   reply_markup=RK_goto_select_album)
+                                   reply_markup=vk_handlers.goto_select_vk_scope())
             await MyStates.select_vk_scope.set()  # go to downloading from vk
 
         elif not yandexDisk.user_authorized:
