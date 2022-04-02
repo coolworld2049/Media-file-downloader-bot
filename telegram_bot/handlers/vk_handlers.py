@@ -59,6 +59,7 @@ async def callback_save_album(callback_query: types.CallbackQuery, state: FSMCon
             callback_selected_album_id = int(data['callback_selected_album_id'])
             await state.finish()
 
+            # search for the id of the selected album in the display_albums_id -> list
             items = downloadVk.display_albums_id()
             for item in items:
                 if item == callback_selected_album_id:
@@ -68,19 +69,20 @@ async def callback_save_album(callback_query: types.CallbackQuery, state: FSMCon
                     if downloadVk.photo_download_completed:
 
                         # uploading photo to Yandex Disk
-                        for photo in downloadVk.photo_url_list:
-                            yandexDisk.create_folder('Saved photo')
-                            path = f'.jpg'
-                            upload_result = yandexDisk.\
-                                upload_file(photo, f'Saved_photo/'
-                                                   f'{downloadVk.display_albums_title(callback_selected_album_id)}', 'jpg')
-                            await bot.send_message(callback_query.from_user.id, text='Загрузка альбома на облако',
-                                                   reply_markup=goto_select_vk_scope())
+                        await bot.send_message(callback_query.from_user.id,
+                                               text=f'Загрузка альбома в облачное хранилище')
+
+                        album_folder: str = downloadVk.display_albums_title(callback_selected_album_id)
+                        upload_result = yandexDisk.upload_file(downloadVk.photo_url_list,
+                                                               album_folder, 'jpg')
+
+                        await bot.send_message(callback_query.from_user.id, text=upload_result,
+                                               reply_markup=goto_select_vk_scope())
                         await MyStates.select_vk_scope.set()
                     else:
-                        await bot.send_message(callback_query.from_user.id, text='При загрузке альбома возникла ошибка')
+                        await bot.send_message(callback_query.from_user.id,
+                                               text='При загрузке альбома из VK возникла ошибка. Попробуйте снова')
                         await MyStates.save_album.set()
-                    break
         else:
             await bot.send_message(callback_query.from_user.id, text='Назад',
                                    reply_markup=goto_select_vk_scope())

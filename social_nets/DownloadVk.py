@@ -11,8 +11,6 @@ class DownloadVk:
         self.vk_app_id: int = 8109852
         self.scopes: str = "photos,docs"
         self.user_authorized = False
-        self.check_photo_list = []
-        self.check_docs_list = []
         self.photo_url_list = []
         self.docs_url_list = []
         self.photo_download_completed = False
@@ -46,6 +44,8 @@ class DownloadVk:
                 self.config.write(open("config.ini", "w"))
                 self.user_authorized = True
                 return "Вы авторизованы в Vk!"
+            else:
+                return f"Ошибка авторизации в Vk!"
         except Exception as e:
             self.user_authorized = False
             return f"Ошибка авторизации в Vk! {e.args}"
@@ -172,7 +172,7 @@ class DownloadVk:
                 albums_id_and_title = self.display_albums()
                 for i in range(len(albums_id_and_title)):
                     if albums_id_and_title[i][0] == album_id:
-                        ret_str = str(albums_id_and_title[0][i])
+                        ret_str = str(albums_id_and_title[i][1])
                         return ret_str
         except Exception as e:
             return e.args
@@ -196,7 +196,6 @@ class DownloadVk:
         # 100 photo per 1 min
         if self.user_authorized:
             try:
-                # Path(os.curdir + "/Saved photos").mkdir(parents=True, exist_ok=True, mode=0o666)
                 albums_with_photos_list = self.albums_with_photos()
                 ownerAndPhotoId_list = []
 
@@ -208,64 +207,42 @@ class DownloadVk:
                 for i in range(len(albums_with_photos_list)):
                     if albums_with_photos_list[i][0] == selected_album_id:
                         try:
-                            time.sleep(0.25)
+                            time.sleep(0.3)
                             ownerAndPhotoId = self.get_photo_by_id(albums_with_photos_list[i][1])
                             one_photo_url = ownerAndPhotoId['response'][0]['sizes'][-1]['url']
                             self.photo_url_list.append(one_photo_url)
-                            self.check_photo_list.append(one_photo_url)
                             print(one_photo_url, sep='\n')
 
-                            """self.photo_url.append(photo_url_list)
-                            print(photo_url_list)
-                            vk_api = requests.get(photo_url_list)
-                            album_title = self.display_albums_title(selected_album_id)
-                            filename = album_title + str(random.randint(1153, 546864))
-                            with open(f"C:/Users/R/PycharmProjects/Social-media-file-downloader/Saved photos/"
-                                      f"{filename}.jpg", "wb") as save_image:
-                                save_image.write(vk_api.content)"""
                         except requests.exceptions.RequestException:
-                            time.sleep(0.5)
+                            time.sleep(0.3)
                             continue
                     else:
                         continue
+
+            except KeyError as ke:
+                print(ke.args)
 
             except Exception as e:
                 print(e.args)
 
             finally:
                 print(self.photo_url_list, sep='\n')
-
-                if len(self.photo_url_list) == len(self.check_photo_list):
-                    self.photo_download_completed = True
-                else:
-                    self.photo_download_completed = False
+                self.photo_download_completed = True
 
                 end = time.perf_counter()
                 print(f'the function save_photo_by_id() was executed for {end - start:0.4f} seconds')
-
+                print(f'downloaded {len(self.photo_url_list)} photo from vk')
         # downloading DOCS
 
     def save_docs(self):
         if self.user_authorized:
             try:
-                # Path(os.curdir + "/Saved docs").mkdir(parents=True, exist_ok=True, mode=0o666)
                 docs = self.get_docs()
                 for doc in docs['response']['items']:
                     try:
                         one_doc_url = doc['url']
                         self.docs_url_list.append(one_doc_url)
-                        self.check_docs_list.append(one_doc_url)
                         print(one_doc_url, sep='\n')
-
-                        """"
-                        time.sleep(0.1)
-                        api = requests.get(doc["url"])
-                        filename = random.randint(1153, 5468645)
-                        with open(f"Saved docs/{filename}." + docs["ext"], "wb") as write_file:
-                            write_file.write(api.content)
-                        i += 1
-                        print(f"{i}/{docs_count}")
-                        """""
 
                     except requests.exceptions:
                         time.sleep(0.5)
@@ -275,9 +252,4 @@ class DownloadVk:
                 return e.args
 
             finally:
-                print(self.docs_url_list, sep='\n')
-
-                if len(self.docs_url_list) == len(self.check_docs_list):
-                    self.docs_download_completed = True
-                else:
-                    self.docs_download_completed = False
+                self.docs_download_completed = True

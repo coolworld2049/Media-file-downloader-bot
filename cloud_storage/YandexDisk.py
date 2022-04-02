@@ -12,7 +12,7 @@ class YandexDisk:
         self.path_to_config = ConfigStorage.path
         self.URL = 'https://cloud-api.yandex.net/v1/disk/resources'
         self.user_authorized = False
-        self.url_list = []
+        self.check_url_list = []
         self.upload_completed = False
 
     # authorization
@@ -38,53 +38,97 @@ class YandexDisk:
 
     # actions with user disk
 
-    def create_folder(self, folder_name: str):
+    def create_file(self, folder_name):
+        resp = requests.put(f'{self.URL}?',
+                            params={
+                                'path': f'{folder_name}',
+                            },
+                            headers={
+                                'Content-Type': 'application/json',
+                                'Accept': 'application/json',
+                                'Authorization': f'OAuth {self.config["YA_DISK_DATA"]["y_api_token"]}'
+                            }).status_code
+        print('Create dir ' + folder_name + ' in cloud storage. Response code: ' + str(resp))
+
+    def delete_file(self, folder_name):
         self.config.read(self.path_to_config)
 
-        requests.put(f'{self.URL}?',
-                     params={
-                         'path': f'{folder_name}',
-                     },
-                     headers={
-                         'Content-Type': 'application/json',
-                         'Accept': 'application/json',
-                         'Authorization': f'OAuth {self.config["YA_DISK_DATA"]["y_api_token"]}'
-                     })
+        resp = requests.delete(f'{self.URL}?',
+                               params={
+                                   'path': f'{folder_name}'
+                               },
+                               headers={
+                                   'Content-Type': 'application/json',
+                                   'Accept': 'application/json',
+                                   'Authorization': f'OAuth {self.config["YA_DISK_DATA"]["y_api_token"]}'
+                               })
+        print('Delete dir ' + folder_name + ' in cloud storage. Response code: ' + str(resp))
 
-    def upload_file(self, url: str, folder_name: str, extension: str, replace=False):
-        """path = /folder_name/filename.ext"""
+    def upload_file(self, url_list: list, folder_name: str, extension: str):
+        """path = folder_name/filename.ext"""
         self.config.read(self.path_to_config)
 
-        filename = str(random.randint(1153, 546864))
-        count = len(self.url_list)
-        counter = 1
-        try:
-            time.sleep(0.1)
-            res = requests.post(f"{self.URL}/upload?",
+        """# creating file
+        meta_dir = requests.get(f'{self.URL}?',
                                 params={
-                                    'url': url,
-                                    'path': f'{folder_name}/{filename}.{extension}',
+                                    'path': '/'
                                 },
                                 headers={
                                     'Content-Type': 'application/json',
                                     'Accept': 'application/json',
                                     'Authorization': f'OAuth {self.config["YA_DISK_DATA"]["y_api_token"]}'
-                                }).status_code
-            self.url_list.append(url)
-            counter += 1
-            print("photo №" + str(counter) + " code" + str(res))
+                                }).json()
+        # creating folder list
+        for el in meta_dir['_embedded']['items']:
+            if folder_name == el['name']:
+                self.delete_file(folder_name)
+                time.sleep(0.3)
+                self.create_file(folder_name)
+            else:
+                self.create_file(folder_name)
+"""
+        self.create_file(folder_name)
+        time.sleep(0.3)
+        counter = 0
+        except_message = ''
+        try:
+            for item in url_list:
+                filename = str(random.randint(1153, 546864))
+                try:
+                    time.sleep(0.3)
+                    response = requests.post(f"{self.URL}/upload?",
+                                             params={
+                                                 'url': item,
+                                                 'path': f'{folder_name}/{filename}.{extension}',
+                                             },
+                                             headers={
+                                                 'Content-Type': 'application/json',
+                                                 'Accept': 'application/json',
+                                                 'Authorization': f'OAuth {self.config["YA_DISK_DATA"]["y_api_token"]}'
+                                             }).status_code
+                    if response == 202 or 200:
+                        self.check_url_list.append(item)
+                    counter += 1
+                    print("upload file to yandex disk: №" + str(counter) + " response code " + f"{response}")
 
-        except requests.exceptions as re:
-            print(re.args)
+                except requests.exceptions.RequestException:
+                    time.sleep(0.3)
+                    continue
+
+        except KeyError as ke:
+            except_message = ke.args
+            print(ke.args)
 
         except Exception as e:
+            except_message = e.args
             print(e.args)
 
-        """if count == counter:
+        number_uploaded_files = len(self.check_url_list)
+
+        if len(self.check_url_list) == len(url_list):
             self.upload_completed = True
-            return 'Файлы загружены на диск'
+            return f'{number_uploaded_files} файлов загружено на облако'
         else:
             self.upload_completed = False
-            return 'При загрузке файлов произошла ошибка'"""
-
-
+            return f'При загрузке файлов на облако произошла ошибка {except_message}.' \
+                   f' Загружено {number_uploaded_files} файлов'
