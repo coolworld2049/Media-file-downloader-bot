@@ -11,6 +11,7 @@ class DownloadVk:
         self.vk_app_id: int = 8109852
         self.scopes: str = "photos,docs"
         self.user_authorized = False
+        self.all_photos = []
         self.photo_url_list = []
         self.docs_url_ext_list = []
         self.photo_download_completed = False
@@ -146,13 +147,13 @@ class DownloadVk:
         try:
             if self.user_authorized:
                 # get album id and photo id - getAll
-                data = self.get_all_photos()
+                self.all_photos = self.get_all_photos()
                 album_id_photo_id = []
                 count = 200
                 i = 0
-                while i <= data["response"]["count"]:
-                    data = self.get_all_photos(offset=i, count=count)
-                    for item in data["response"]["items"]:
+                while i <= self.all_photos["response"]["count"]:
+                    self.all_photos = self.get_all_photos(offset=i, count=count)
+                    for item in self.all_photos["response"]["items"]:
                         album_id_photo_id.append([item["album_id"], item["id"]])
                     i += 200
                 return album_id_photo_id
