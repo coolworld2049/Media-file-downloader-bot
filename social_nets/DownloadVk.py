@@ -208,31 +208,33 @@ class DownloadVk:
         if self.user_authorized:
             try:
                 self.photo_url_list.clear()
-                self.photo_download_completed = False
                 self.album_folder_name.clear()
+                self.photo_download_completed = False
 
                 albums_with_photos_list = self.albums_with_photos()
                 ownerAndPhotoId_list = []
 
-                # id list with selected album photos
+                # list of photo IDs(ownerAndPhotoId_list) from the selected_album_id
                 for i in range(len(albums_with_photos_list)):
                     if albums_with_photos_list[i][0] == selected_album_id:
                         ownerAndPhotoId_list.append(albums_with_photos_list[i][1])
 
+                # downloading photos urls by photo id from ownerAndPhotoId_list
                 for i in range(len(albums_with_photos_list)):
                     if albums_with_photos_list[i][0] == selected_album_id:
+                        time.sleep(0.3)  # important
                         try:
-                            time.sleep(0.25)  # important
                             ownerAndPhotoId = self.get_photo_by_id(albums_with_photos_list[i][1])
                             one_photo_url = ownerAndPhotoId['response'][0]['sizes'][-1]['url']
                             self.photo_url_list.append(one_photo_url)
                             print(one_photo_url, sep='\n')
 
                         except requests.exceptions.RequestException:
-                            time.sleep(0.3)
+                            time.sleep(0.1)
                             continue
-                    else:
-                        continue
+
+            except KeyError as ke:
+                print(f'KeyError {ke.args}')
 
             except Exception as e:
                 print(e.args)
@@ -243,9 +245,8 @@ class DownloadVk:
                 end = time.perf_counter()
                 print(f'the function save_photo_by_id() was executed for {end - start:0.4f} seconds')
                 print(f'downloaded {len(self.photo_url_list)} photo from vk')
-        # downloading DOCS
 
-    # downloading DOCS by album
+    # downloading DOCS
 
     def save_docs(self):
         if self.user_authorized:
@@ -254,14 +255,13 @@ class DownloadVk:
                 self.docs_download_completed = False
                 docs = self.get_docs()
                 for doc in docs['response']['items']:
+                    time.sleep(0.1)
                     try:
-                        one_doc_url = doc['url']
-                        one_doc_ext = doc['ext']
-                        self.docs_url_ext_list.append([one_doc_url, one_doc_ext])
-                        print(one_doc_url, sep='\n')
+                        self.docs_url_ext_list.append([doc['url'], doc['ext']])
+                        print(doc['url'], sep='\n')
 
                     except requests.exceptions:
-                        time.sleep(0.5)
+                        time.sleep(0.1)
                         continue
 
             except Exception as e:

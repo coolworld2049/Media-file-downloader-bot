@@ -125,13 +125,13 @@ class YandexDisk:
             status_code = 202
             for item in url_list:
                 if status_code == 202 or 200:
+                    time.sleep(0.2)
                     try:
                         filename = str(counter) + '_' + str(random.randint(1153, 546864))
-                        time.sleep(0.3)
                         status_code = requests.post(f"{self.URL}/upload?",
                                                     params={
-                                                        'url': item,
                                                         'path': f'{subfolder_path}/{filename}.{extension}',
+                                                        'url': item,
                                                         'overwrite': overwrite
                                                     },
                                                     headers={
@@ -146,7 +146,7 @@ class YandexDisk:
                               f"№" + str(counter) + " response code " + f"{status_code}")
 
                     except requests.exceptions.RequestException:
-                        time.sleep(0.3)
+                        time.sleep(0.1)
                         continue
                 elif counter > 10:
                     break
@@ -155,13 +155,13 @@ class YandexDisk:
             status_code = 202
             for i in range(len(url_list)):
                 if status_code == 202 or 200:
+                    time.sleep(0.2)
                     try:
                         filename = str(counter) + '_' + str(random.randint(1153, 546864))
-                        time.sleep(0.3)
                         status_code = requests.post(f"{self.URL}/upload?",
                                                     params={
-                                                        'url': url_list[i][0],
                                                         'path': f'{subfolder_path}/{filename}.{url_list[i][1]}',
+                                                        'url': url_list[i][0],
                                                         'overwrite': overwrite
                                                     },
                                                     headers={
@@ -176,7 +176,7 @@ class YandexDisk:
                               f" №" + str(counter) + " response code " + f"{status_code}")
 
                     except requests.exceptions.RequestException:
-                        time.sleep(0.3)
+                        time.sleep(0.1)
                         continue
                 elif counter > 10:
                     break
