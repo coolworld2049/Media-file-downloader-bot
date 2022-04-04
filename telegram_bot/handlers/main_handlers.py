@@ -20,12 +20,16 @@ def register_handlers_main(dispatcher: Dispatcher):
 @dp.message_handler(commands=['start'])
 async def send_start(message: types.Message):
     # display source list
-    IK_select_source = InlineKeyboardMarkup()
+    IK_select_source = InlineKeyboardMarkup(row_width=2)
     IK_select_source.add(InlineKeyboardButton(text=emoji.emojize(':dizzy: Download from Vk'),
                                               callback_data='buttonVk'),
                          InlineKeyboardButton(text=emoji.emojize(':globe_with_meridians: '
                                                                  'Download from YouTube'),
-                                              callback_data='buttonYt'))
+                                              callback_data='button_video_yt'),
+                         InlineKeyboardButton(text=emoji.emojize(':framed_picture: '
+                                                                 'Download photo from Pinterest'),
+                                              callback_data='button_music_yt'))
+
     await bot.send_message(message.from_user.id, text='Выберите соц. сеть',
                            reply_markup=IK_select_source)
 

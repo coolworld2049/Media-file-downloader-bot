@@ -102,17 +102,6 @@ async def callback_save_album(callback_query: types.CallbackQuery, state: FSMCon
             await state.finish()
             await MyStates.select_vk_scope.set()
 
-    """# отправка фото в чат max 8 items
-    try:
-        if downloadVk.photo_upload_completed:
-            for photo in downloadVk.photo_url_list:
-                await bot.send_photo(callback_query.from_user.id, photo)
-        downloadVk.photo_url_list.clear()
-
-    except Exception as e:
-        await bot.send_message(callback_query.from_user.id,
-                               text=f'Ошибка отправки фото в чат {e.args}')"""
-
 
 @dp.callback_query_handler(lambda c: c.data == 'docs')
 async def callback_save_docs(callback_query: types.CallbackQuery):
