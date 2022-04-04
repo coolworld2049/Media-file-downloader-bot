@@ -10,7 +10,6 @@ from telegram_bot.handlers import vk_handlers
 def register_handlers_main(dispatcher: Dispatcher):
     dispatcher.register_message_handler(send_start, commands="start")
     dispatcher.register_message_handler(send_help, commands="help")
-    dispatcher.register_message_handler(send_select, commands="select")
 
     dispatcher.register_callback_query_handler(callback_button_vk, lambda c: c.data == 'buttonVk')
 
@@ -20,29 +19,6 @@ def register_handlers_main(dispatcher: Dispatcher):
 
 @dp.message_handler(commands=['start'])
 async def send_start(message: types.Message):
-    await bot.send_message(message.from_user.id,
-                           text='Привет!\n\n'
-                                'Это бот для загрузки ваших  медиафайлов из социальных сетей.\n\n'
-                                'Сейчас доступна загрузка из Vk, YouTube\n\n'
-                                'Список команд:\n'
-                                '\t/select - выбрать соц. сеть\n'
-                                '\t/help - список команд')
-    await dp.bot.set_my_commands(
-        [
-            types.BotCommand("start", "Запустить бота"),
-            types.BotCommand("help", "Вывести справку"),
-            types.BotCommand("select", "Выбрать соц сеть для загрузки")
-        ])
-
-
-@dp.message_handler(commands=['help'])
-async def send_help(message: types.Message):
-    await message.answer('/select - выбрать соц. сеть\n'
-                         '/help - список команд')
-
-
-@dp.message_handler(commands=['select'])
-async def send_select(message: types.Message):
     # display source list
     IK_select_source = InlineKeyboardMarkup()
     IK_select_source.add(InlineKeyboardButton(text=emoji.emojize(':dizzy: Download from Vk'),
@@ -54,11 +30,17 @@ async def send_select(message: types.Message):
                            reply_markup=IK_select_source)
 
 
+@dp.message_handler(commands=['help'])
+async def send_help(message: types.Message):
+    await message.answer('/start - выбрать соц. сеть\n'
+                         '/help - список команд')
+
+
 @dp.callback_query_handler(lambda c: c.data == 'buttonVk')
 async def callback_button_vk(callback_query: types.CallbackQuery):
     if not downloadVk.user_authorized:
         IK_button_vk = InlineKeyboardMarkup()
-        IK_button_vk.add(InlineKeyboardButton('Авторизация', url=downloadVk.send_auth_link()))
+        IK_button_vk.add(InlineKeyboardButton('Авторизация в VK', url=downloadVk.send_auth_link()))
         await bot.send_message(callback_query.from_user.id,
                                text=f'Для загрузки данных из вашего аккаунта требуется авторизация'
                                     f' Нажмите на кнопку и скопируйте АДРЕС из адресной'
@@ -103,7 +85,7 @@ async def message_auth_vk(message: types.Message, state: FSMContext):
 
 def auth_ya_disk():
     IK_ya_auth = InlineKeyboardMarkup()
-    IK_ya_auth.add(InlineKeyboardButton('Yandex Disk', url=yandexDisk.auth_ya_disk_send_link()))
+    IK_ya_auth.add(InlineKeyboardButton('Авторизация в Yandex Disk', url=yandexDisk.auth_ya_disk_send_link()))
     msg = 'Данные будут загружены в отдельную папку' \
           ' в вашем облачном хранилище Yandex Disk.' \
           ' Для авторизации нажмите на кнопку и скопируйте ТОКЕН' \

@@ -7,5 +7,3 @@ class States(StatesGroup):
     select_vk_scope = State()
     save_album = State()
     save_docs = State()
-
-

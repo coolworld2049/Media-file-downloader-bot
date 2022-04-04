@@ -12,9 +12,12 @@ class DownloadVk:
         self.scopes: str = "photos,docs"
         self.user_authorized = False
         self.photo_url_list = []
-        self.docs_url_list = []
+        self.docs_url_ext_list = []
         self.photo_download_completed = False
         self.docs_download_completed = False
+        self.album_folder_name = []
+        self.curr_album_title = 'default'
+        self.docs_folder_name = 'docs'
         self.config = ConfigStorage.configParser
         self.path_to_config = ConfigStorage.path
 
@@ -125,6 +128,7 @@ class DownloadVk:
     # get json file with DOCS data
 
     def get_docs(self, count=0):
+        """MAX count = 200"""
         self.config.read(self.path_to_config)
 
         if self.user_authorized:
@@ -155,25 +159,32 @@ class DownloadVk:
         except Exception as e:
             return e.args
 
-    def display_albums(self):
+    def display_albums(self, albums_data=True, albums_size=False):
         try:
-            if self.user_authorized:
+            if self.user_authorized and albums_data and not albums_size:
                 json_data = self.get_albums()
                 albums_id_title = []
                 for albums in json_data["response"]["items"]:
                     albums_id_title.append([albums["id"], albums["title"]])
                 return albums_id_title
+
+            if self.user_authorized and albums_size:
+                json_data = self.get_albums()
+                albums_id_title_size = []
+                for albums in json_data["response"]["items"]:
+                    albums_id_title_size.append([[albums["id"], albums["title"], albums["size"]]])
+                return albums_id_title_size
+
         except Exception as e:
             return e.args
 
     def display_albums_title(self, album_id: int):
         try:
             if self.user_authorized:
-                albums_id_and_title = self.display_albums()
+                albums_id_and_title = self.display_albums(albums_data=True)
                 for i in range(len(albums_id_and_title)):
                     if albums_id_and_title[i][0] == album_id:
-                        ret_str = str(albums_id_and_title[i][1])
-                        return ret_str
+                        return str(albums_id_and_title[i][1])
         except Exception as e:
             return e.args
 
@@ -190,12 +201,16 @@ class DownloadVk:
 
     # downloading PHOTOS by album
 
-    def save_photo_by_id(self, selected_album_id: int):
+    def save_album_by_id(self, selected_album_id: int):
         start = time.perf_counter()
 
         # 100 photo per 1 min
         if self.user_authorized:
             try:
+                self.photo_url_list.clear()
+                self.photo_download_completed = False
+                self.album_folder_name.clear()
+
                 albums_with_photos_list = self.albums_with_photos()
                 ownerAndPhotoId_list = []
 
@@ -207,7 +222,7 @@ class DownloadVk:
                 for i in range(len(albums_with_photos_list)):
                     if albums_with_photos_list[i][0] == selected_album_id:
                         try:
-                            time.sleep(0.3)
+                            time.sleep(0.25)  # important
                             ownerAndPhotoId = self.get_photo_by_id(albums_with_photos_list[i][1])
                             one_photo_url = ownerAndPhotoId['response'][0]['sizes'][-1]['url']
                             self.photo_url_list.append(one_photo_url)
@@ -219,14 +234,10 @@ class DownloadVk:
                     else:
                         continue
 
-            except KeyError as ke:
-                print(ke.args)
-
             except Exception as e:
                 print(e.args)
 
             finally:
-                print(self.photo_url_list, sep='\n')
                 self.photo_download_completed = True
 
                 end = time.perf_counter()
@@ -234,14 +245,19 @@ class DownloadVk:
                 print(f'downloaded {len(self.photo_url_list)} photo from vk')
         # downloading DOCS
 
+    # downloading DOCS by album
+
     def save_docs(self):
         if self.user_authorized:
             try:
+                self.docs_url_ext_list.clear()
+                self.docs_download_completed = False
                 docs = self.get_docs()
                 for doc in docs['response']['items']:
                     try:
                         one_doc_url = doc['url']
-                        self.docs_url_list.append(one_doc_url)
+                        one_doc_ext = doc['ext']
+                        self.docs_url_ext_list.append([one_doc_url, one_doc_ext])
                         print(one_doc_url, sep='\n')
 
                     except requests.exceptions:
