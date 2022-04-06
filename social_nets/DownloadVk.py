@@ -1,7 +1,11 @@
 import json
+import os
 import time
+from itertools import islice
 
+import psutil
 import requests
+from tqdm.contrib.telegram import tqdm
 
 from data import ConfigStorage
 
@@ -11,11 +15,13 @@ class DownloadVk:
         self.vk_app_id: int = 8109852
         self.scopes: str = "photos,docs"
         self.user_authorized = False
-        self.all_photos = []
+        self.bot_chat_id = ''
+        self.all_photo_url_list = []
         self.photo_url_list = []
         self.docs_url_ext_list = []
         self.photo_download_completed = False
         self.docs_download_completed = False
+        self.photo_url_list_size_MB: float = 0.0
         self.album_folder_name = []
         self.curr_album_title = 'default'
         self.docs_folder_name = 'docs'
@@ -80,15 +86,21 @@ class DownloadVk:
 
     # get JSON file with PHOTOS data
 
-    def get_photo_by_id(self, photo_id):
+    def get_photo_by_id(self, photo_id: list):
         self.config.read(self.path_to_config)
 
         if self.user_authorized:
+            id_list = ''
+            user_id = str(self.config['VK_ACC_DATA']['vk_user_id'])
+            for item in photo_id:
+                id_list += ',' + user_id + '_' + str(item)
+
             api = requests.get("https://api.vk.com/method/photos.getById", params={
                 'access_token': self.config['VK_ACC_DATA']['vk_token'],
-                'photos': str(self.config['VK_ACC_DATA']['vk_user_id'] + "_" + str(photo_id)),
+                'photos': id_list,
                 'v': 5.131
             })
+            self.photo_url_list_size_MB += len(api.content) / 1048576
             return api.json()
 
     def get_albums(self):
@@ -121,7 +133,7 @@ class DownloadVk:
                 'access_token': self.config['VK_ACC_DATA']['vk_token'],
                 'offset': offset,
                 'count': count,
-                'photo_sizes': 0,
+                'photo_sizes': 1,
                 'v': 5.131
             })
             return json.loads(api.text)
@@ -147,13 +159,13 @@ class DownloadVk:
         try:
             if self.user_authorized:
                 # get album id and photo id - getAll
-                self.all_photos = self.get_all_photos()
+                data = self.get_all_photos()
                 album_id_photo_id = []
                 count = 200
                 i = 0
-                while i <= self.all_photos["response"]["count"]:
-                    self.all_photos = self.get_all_photos(offset=i, count=count)
-                    for item in self.all_photos["response"]["items"]:
+                while i <= data["response"]["count"]:
+                    data = self.get_all_photos(offset=i, count=count)
+                    for item in data["response"]["items"]:
                         album_id_photo_id.append([item["album_id"], item["id"]])
                     i += 200
                 return album_id_photo_id
@@ -171,10 +183,13 @@ class DownloadVk:
 
             if self.user_authorized and albums_size:
                 json_data = self.get_albums()
-                albums_id_title_size = []
+                albums_id_title_size_thumb = []
                 for albums in json_data["response"]["items"]:
-                    albums_id_title_size.append([[albums["id"], albums["title"], albums["size"]]])
-                return albums_id_title_size
+                    albums_id_title_size_thumb.append([[albums["id"],
+                                                        albums["title"],
+                                                        albums["size"],
+                                                        albums["thumb_id"]]])
+                return albums_id_title_size_thumb
 
         except Exception as e:
             return e.args
@@ -220,32 +235,87 @@ class DownloadVk:
                     if albums_with_photos_list[i][0] == selected_album_id:
                         ownerAndPhotoId_list.append(albums_with_photos_list[i][1])
 
-                # downloading photos urls by photo id from ownerAndPhotoId_list
-                for i in range(len(albums_with_photos_list)):
-                    if albums_with_photos_list[i][0] == selected_album_id:
-                        time.sleep(0.3)  # important
-                        try:
-                            ownerAndPhotoId = self.get_photo_by_id(albums_with_photos_list[i][1])
-                            one_photo_url = ownerAndPhotoId['response'][0]['sizes'][-1]['url']
-                            self.photo_url_list.append(one_photo_url)
-                            print(one_photo_url, sep='\n')
+                # get album id and photo id - getAll
+                if len(ownerAndPhotoId_list) > 50:
+                    limit = 20
+                    length_to_split = []
+                    count_in_subliist = len(ownerAndPhotoId_list) // limit
+                    remainder = len(ownerAndPhotoId_list) - (count_in_subliist * limit)
 
-                        except requests.exceptions.RequestException:
-                            time.sleep(0.1)
-                            continue
+                    for _ in range(count_in_subliist):
+                        length_to_split.append(limit)
+                    if remainder > 0:
+                        length_to_split.append(remainder)
+
+                    print(length_to_split)
+                    output = [list(islice(ownerAndPhotoId_list, elem)) for elem in length_to_split]
+                    print(output)
+
+                    for index in tqdm(range(len(output)), token=os.environ.get("BOT_TOKEN"), chat_id=self.bot_chat_id):
+                        time.sleep(0.2)
+                        data = self.get_photo_by_id(output[index])
+                        for item in data['response']:
+                            # loaded photos URL
+                            self.photo_url_list.append(item["sizes"][-1]["url"])
+                            print(item["sizes"][-1]["url"])
+
+                else:
+                    data = self.get_photo_by_id(ownerAndPhotoId_list)
+                    for item in tqdm(data['response'], token=os.environ.get("BOT_TOKEN"), chat_id=self.bot_chat_id):
+                        time.sleep(0.1)
+                        photo_size = requests.get(item['sizes'][-1]['url']).content
+                        self.photo_url_list_size_MB += len(photo_size) / 1048576
+
+                        self.photo_url_list.append([item["sizes"][-1]["url"]])
+                        print(item["sizes"][-1]["url"])
 
             except KeyError as ke:
-                print(f'KeyError {ke.args}')
+                print(f'save_album_by_id(). KeyError {ke.args}')
+
+            finally:
+                if len(self.photo_url_list) != 0:
+                    self.photo_download_completed = True
+
+                end = time.perf_counter()
+                print(f'the function save_photo_by_id() was executed for {end - start:0.4f} seconds')
+                print(f'downloaded {len(self.photo_url_list)} photo from vk')
+                print(f'photos weight: {self.photo_url_list_size_MB}')
+
+    def save_all_photo(self):
+        start = time.perf_counter()
+
+        if self.user_authorized:
+            try:
+                self.all_photo_url_list.clear()
+                self.photo_download_completed = False
+
+                # get album id and photo id - getAll
+                data = self.get_all_photos()
+                count = 200
+                i = 0
+                while i <= tqdm(data["response"]["count"], token=os.environ.get("BOT_TOKEN"), chat_id=self.bot_chat_id):
+                    data = self.get_all_photos(offset=i, count=count)
+                    for item in data["response"]["items"]:
+                        self.all_photo_url_list.append(item['sizes'][-1]['url'])
+                    i += 200
 
             except Exception as e:
                 print(e.args)
 
             finally:
-                self.photo_download_completed = True
+                if len(self.photo_url_list) != 0:
+                    self.photo_download_completed = True
 
                 end = time.perf_counter()
-                print(f'the function save_photo_by_id() was executed for {end - start:0.4f} seconds')
-                print(f'downloaded {len(self.photo_url_list)} photo from vk')
+                print(f'the function save_all_photo() was executed for {end - start:0.4f} seconds')
+                print(f'downloaded {len(self.all_photo_url_list)} photo from vk')
+
+    def save_files_locally(self):
+        """if self.photo_url_list_size_MB < 1995:  # TODO доделать архивирование
+            with zipfile.ZipFile(self.curr_album_title, 'w') as write_file:
+                write_file.write(self.photo_url_list)
+
+            print(f'created zip archive: {self.curr_album_title}')"""
 
     # downloading DOCS
 
@@ -255,7 +325,8 @@ class DownloadVk:
                 self.docs_url_ext_list.clear()
                 self.docs_download_completed = False
                 docs = self.get_docs()
-                for doc in docs['response']['items']:
+                for doc in tqdm(docs['response']['items'], token=os.environ.get("BOT_TOKEN"), chat_id=self.bot_chat_id):
+
                     time.sleep(0.1)
                     try:
                         self.docs_url_ext_list.append([doc['url'], doc['ext']])
@@ -270,3 +341,13 @@ class DownloadVk:
 
             finally:
                 self.docs_download_completed = True
+
+    # stop process
+
+    @staticmethod
+    def stop_proc(name):
+        for proc in psutil.process_iter():
+            print(proc)
+            # check whether the process name matches
+            if proc.name() == name:
+                proc.kill()

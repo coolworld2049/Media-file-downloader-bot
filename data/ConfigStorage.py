@@ -11,8 +11,8 @@ def create_file():
 
     configParser['VK_ACC_DATA'] = {'vk_app_id': 8109852,
                                    'vk_token': '',
-                                   'token_expires_in': '',
-                                   'vk_user_id': ''}
+                                   'vk_user_id': '',
+                                   'vk_token_expires_in': ''}
 
     configParser['BOT_DATA'] = {'heroku_app_name': 'media-downloader-tg',
                                 'webapp_port': 8000}

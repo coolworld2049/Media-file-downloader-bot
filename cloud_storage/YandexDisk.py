@@ -1,8 +1,9 @@
+import os
 import random
 import time
 
-import emoji
 import requests
+from tqdm.contrib.telegram import tqdm
 
 from data import ConfigStorage
 
@@ -14,7 +15,9 @@ class YandexDisk:
         self.URL = 'https://cloud-api.yandex.net/v1/disk/resources'
         self.user_authorized = False
         self.main_folder = 'Saved from tg'
-
+        self.subfolder_path = ''
+        self.bot_chat_id = ''
+        self.count_uploaded_files = 0
         self.check_url_list = []
         self.upload_completed = False
 
@@ -65,7 +68,7 @@ class YandexDisk:
                                 'Accept': 'application/json',
                                 'Authorization': f'OAuth {self.config["YA_DISK_DATA"]["y_api_token"]}'
                             }).status_code
-        print(f'Create dir {folder_name} in cloud storage. Response code: {str(resp)}')
+        print(f'Create dir {self.subfolder_path} in cloud storage. Response code: {str(resp)}')
 
         if resp == 201:
             return True
@@ -77,7 +80,8 @@ class YandexDisk:
 
         resp = requests.delete(f'{self.URL}?',
                                params={
-                                   'path': f'{folder_name}'
+                                   'path': f'{folder_name}',
+                                   'permanently': True
                                },
                                headers={
                                    'Content-Type': 'application/json',
@@ -98,23 +102,20 @@ class YandexDisk:
         start = time.perf_counter()
 
         subfolders_on_disk = self.get_folders_from_main_cat()
-        subfolder_path = f'Saved from tg/{folder_name}'
+        self.subfolder_path = f'Saved from tg/{folder_name}'
 
         # rewriting folder in cloud
         if len(subfolders_on_disk) != 3 and subfolders_on_disk['_embedded']['items'] != 0:
             for a in subfolders_on_disk['_embedded']['items']:
                 if a['name'] == folder_name:
-                    time.sleep(0.3)
-                    if self.delete_file(subfolder_path):
-                        time.sleep(0.3)
-                        self.create_file(subfolder_path)
-                        break
+                    if self.delete_file(self.subfolder_path):
+                        if self.delete_file(self.main_folder):
+                            break
 
         counter = 0
-        except_message = ''
 
         self.create_file(self.main_folder)
-        self.create_file(subfolder_path)
+        self.create_file(self.subfolder_path)
 
         self.upload_completed = False
         self.check_url_list.clear()
@@ -122,15 +123,15 @@ class YandexDisk:
         self.config.read(self.path_to_config)
         if is_exist_extension:
             """exist only url"""
-            status_code = 202
-            for item in url_list:
+            status_code = 0
+            for item in tqdm(url_list, token=os.environ.get("BOT_TOKEN"), chat_id=self.bot_chat_id):
                 if status_code == 202 or 200:
                     time.sleep(0.2)
                     try:
-                        filename = str(counter) + '_' + str(random.randint(1153, 546864))
+                        filename = str(counter + 1) + '_photo'
                         status_code = requests.post(f"{self.URL}/upload?",
                                                     params={
-                                                        'path': f'{subfolder_path}/{filename}.{extension}',
+                                                        'path': f'{self.subfolder_path}/{filename}.{extension}',
                                                         'url': item,
                                                         'overwrite': overwrite
                                                     },
@@ -141,26 +142,26 @@ class YandexDisk:
                                                     }).status_code
                         if status_code == 202 or 200:
                             self.check_url_list.append(item)
-                        counter += 1
-                        print(f"upload file to yandex disk (folder: {subfolder_path}): "
-                              f"№" + str(counter) + " response code " + f"{status_code}")
+                            counter += 1
+                        print(f"upload file to yandex disk (folder: {self.subfolder_path}): "
+                              f"№" + str(counter + 1) + " response code " + f"{status_code}")
 
                     except requests.exceptions.RequestException:
                         time.sleep(0.1)
                         continue
-                elif counter > 10:
+                elif status_code != 202 or 200 and counter > 10:
                     break
         else:
             """exist url and file extension"""
-            status_code = 202
-            for i in range(len(url_list)):
+            status_code = 0
+            for i in tqdm(range(len(url_list)), token=os.environ.get("BOT_TOKEN"), chat_id=self.bot_chat_id):
                 if status_code == 202 or 200:
                     time.sleep(0.2)
                     try:
-                        filename = str(counter) + '_' + str(random.randint(1153, 546864))
+                        filename = str(counter + 1) + '_' + str(random.randint(1153, 546864))
                         status_code = requests.post(f"{self.URL}/upload?",
                                                     params={
-                                                        'path': f'{subfolder_path}/{filename}.{url_list[i][1]}',
+                                                        'path': f'{self.subfolder_path}/{filename}.{url_list[i][1]}',
                                                         'url': url_list[i][0],
                                                         'overwrite': overwrite
                                                     },
@@ -171,32 +172,27 @@ class YandexDisk:
                                                     }).status_code
                         if status_code == 202 or 200:
                             self.check_url_list.append(url_list[i][0])
-                        counter += 1
-                        print(f"upload file to yandex disk (folder: {subfolder_path}):"
-                              f" №" + str(counter) + " response code " + f"{status_code}")
+                            counter += 1
+                        print(f"upload file to yandex disk (folder: {self.subfolder_path}):"
+                              f" №" + str(counter + 1) + " response code " + f"{status_code}")
 
                     except requests.exceptions.RequestException:
                         time.sleep(0.1)
                         continue
-                elif counter > 10:
+                elif status_code != 202 or 200 and counter > 10:
                     break
 
-        number_uploaded_files = len(self.check_url_list)
+        self.count_uploaded_files = len(self.check_url_list)
 
         end = time.perf_counter()
-        print(f'the function upload_file() was executed for {end - start:0.4f} seconds')
+        print(f'\nthe function upload_file() was executed for {end - start:0.4f} seconds')
         print(f'uploaded {len(self.check_url_list)} files to Yandex Disk')
 
         if len(self.check_url_list) == len(url_list):
             self.upload_completed = True
-            return emoji.emojize(f":check_mark: Файлы загружены в папку на Яндекс диске\n"
-                                 f"                      '{subfolder_path}'\n"
-                                 f":check_mark: Количество загруженных файлов: {number_uploaded_files}")
+
         else:
             self.upload_completed = False
-            return emoji.emojize(f":cross_mark_button: При загрузке файлов на облако произошла"
-                                 f" ошибка {except_message}."
-                                 f" Загружено {number_uploaded_files} файлов")
 
     def download_file(self, folder_name: str):
         data = requests.get(f"{self.URL}/download?",
