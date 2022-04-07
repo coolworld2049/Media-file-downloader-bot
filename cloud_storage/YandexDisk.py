@@ -5,13 +5,13 @@ import time
 import requests
 from tqdm.contrib.telegram import tqdm
 
-from data import ConfigStorage
+from data import config
 
 
 class YandexDisk:
     def __init__(self):
-        self.config = ConfigStorage.configParser
-        self.path_to_config = ConfigStorage.path
+        self.config = config.configParser
+        self.path_to_config = config.path
         self.URL = 'https://cloud-api.yandex.net/v1/disk/resources'
         self.user_authorized = False
         self.main_folder = 'Saved from tg'
@@ -95,7 +95,7 @@ class YandexDisk:
         else:
             return False
 
-    def upload_file(self, url_list: list, folder_name: str, extension: str = '.file', is_exist_extension: bool = True,
+    def upload_file(self, url_list: list, folder_name: str, extension: str = '.file', is_extension: bool = True,
                     overwrite: bool = False):
         """if :param extension: does not exist then extract it from url_list"""
 
@@ -121,7 +121,7 @@ class YandexDisk:
         self.check_url_list.clear()
 
         self.config.read(self.path_to_config)
-        if is_exist_extension:
+        if is_extension:
             """exist only url"""
             status_code = 0
             for item in tqdm(url_list, token=os.environ.get("BOT_TOKEN"), chat_id=self.bot_chat_id):

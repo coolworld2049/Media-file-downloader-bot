@@ -7,7 +7,7 @@ import psutil
 import requests
 from tqdm.contrib.telegram import tqdm
 
-from data import ConfigStorage
+from data import config
 
 
 class DownloadVk:
@@ -25,8 +25,8 @@ class DownloadVk:
         self.album_folder_name = []
         self.curr_album_title = 'default'
         self.docs_folder_name = 'docs'
-        self.config = ConfigStorage.configParser
-        self.path_to_config = ConfigStorage.path
+        self.config = config.configParser
+        self.path_to_config = config.path
 
     # authorization in user account
 
