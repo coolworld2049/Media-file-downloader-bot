@@ -15,22 +15,20 @@ class YandexDisk:
         self.URL = 'https://cloud-api.yandex.net/v1/disk/resources'
         self.user_authorized = False
         self.main_folder = 'Saved from tg'
-        self.subfolder_path = ''
         self.bot_chat_id = ''
-        self.count_uploaded_files = 0
-        self.check_url_list = []
+        self.check_url_list = 0
         self.upload_completed = False
 
     # authorization
 
-    def auth_ya_disk_send_link(self):
+    def send_link(self):
         self.config.read(self.path_to_config)
 
         link = f'https://oauth.yandex.ru/authorize?response_type=token' \
                f'&client_id={self.config["YA_DISK_DATA"]["y_app_id"]}'
         return link
 
-    def auth_ya_disk(self, ya_token: str):
+    def auth(self, ya_token: str):
         if len(ya_token) == 39:
             self.config.read(self.path_to_config)
             self.config.set("YA_DISK_DATA", "y_api_token", ya_token)
@@ -44,7 +42,7 @@ class YandexDisk:
 
     # actions with user disk
 
-    def get_folders_from_main_cat(self):
+    def get_folders(self):
         self.config.read(self.path_to_config)
 
         meta_dir = requests.get(f'{self.URL}?',
@@ -58,7 +56,7 @@ class YandexDisk:
                                 }).json()
         return meta_dir
 
-    def create_file(self, folder_name):
+    def create_folder(self, folder_name):
         resp = requests.put(f'{self.URL}?',
                             params={
                                 'path': f'{folder_name}',
@@ -68,14 +66,14 @@ class YandexDisk:
                                 'Accept': 'application/json',
                                 'Authorization': f'OAuth {self.config["YA_DISK_DATA"]["y_api_token"]}'
                             }).status_code
-        print(f'Create dir {self.subfolder_path} in cloud storage. Response code: {str(resp)}')
+        print(f'Create dir {self.main_folder}/{folder_name} in cloud storage. Response code: {str(resp)}')
 
         if resp == 201:
             return True
         else:
             return False
 
-    def delete_file(self, folder_name):
+    def delete_folder(self, folder_name):
         self.config.read(self.path_to_config)
 
         resp = requests.delete(f'{self.URL}?',
@@ -95,114 +93,82 @@ class YandexDisk:
         else:
             return False
 
-    def upload_file(self, url_list: list, folder_name: str, extension: str = '.file', is_extension: bool = True,
-                    overwrite: bool = False):
-        """if :param extension: does not exist then extract it from url_list"""
-
+    def upload_file(self, url_list: list, folder_name: str, overwrite: bool = False):
         start = time.perf_counter()
 
-        subfolders_on_disk = self.get_folders_from_main_cat()
-        self.subfolder_path = f'Saved from tg/{folder_name}'
+        self.config.read(self.path_to_config)
 
+        subfolders_on_disk = self.get_folders()
+        subfolder_path = f'Saved from tg/{folder_name}'
         # rewriting folder in cloud
         if len(subfolders_on_disk) != 3 and subfolders_on_disk['_embedded']['items'] != 0:
             for a in subfolders_on_disk['_embedded']['items']:
                 if a['name'] == folder_name:
-                    if self.delete_file(self.subfolder_path):
-                        if self.delete_file(self.main_folder):
-                            break
+                    self.delete_folder(subfolder_path)
 
-        counter = 0
-
-        self.create_file(self.main_folder)
-        self.create_file(self.subfolder_path)
+        time.sleep(0.1)
+        self.create_folder(self.main_folder)
+        time.sleep(0.1)
+        self.create_folder(subfolder_path)
 
         self.upload_completed = False
-        self.check_url_list.clear()
+        self.check_url_list = 0
 
-        self.config.read(self.path_to_config)
-        if is_extension:
-            """exist only url"""
-            status_code = 0
-            for item in tqdm(url_list, token=os.environ.get("BOT_TOKEN"), chat_id=self.bot_chat_id):
-                if status_code == 202 or 200:
-                    time.sleep(0.2)
-                    try:
-                        filename = str(counter + 1) + '_photo'
-                        status_code = requests.post(f"{self.URL}/upload?",
-                                                    params={
-                                                        'path': f'{self.subfolder_path}/{filename}.{extension}',
-                                                        'url': item,
-                                                        'overwrite': overwrite
-                                                    },
-                                                    headers={
-                                                        'Content-Type': 'application/json',
-                                                        'Accept': 'application/json',
-                                                        'Authorization': f'OAuth {self.config["YA_DISK_DATA"]["y_api_token"]}'
-                                                    }).status_code
-                        if status_code == 202 or 200:
-                            self.check_url_list.append(item)
-                            counter += 1
-                        print(f"upload file to yandex disk (folder: {self.subfolder_path}): "
-                              f"№" + str(counter + 1) + " response code " + f"{status_code}")
+        status_code = 0
+        counter = 0
 
-                    except requests.exceptions.RequestException:
-                        time.sleep(0.1)
-                        continue
-                elif status_code != 202 or 200 and counter > 10:
-                    break
-        else:
-            """exist url and file extension"""
-            status_code = 0
-            for i in tqdm(range(len(url_list)), token=os.environ.get("BOT_TOKEN"), chat_id=self.bot_chat_id):
-                if status_code == 202 or 200:
-                    time.sleep(0.2)
-                    try:
-                        filename = str(counter + 1) + '_' + str(random.randint(1153, 546864))
-                        status_code = requests.post(f"{self.URL}/upload?",
-                                                    params={
-                                                        'path': f'{self.subfolder_path}/{filename}.{url_list[i][1]}',
-                                                        'url': url_list[i][0],
-                                                        'overwrite': overwrite
-                                                    },
-                                                    headers={
-                                                        'Content-Type': 'application/json',
-                                                        'Accept': 'application/json',
-                                                        'Authorization': f'OAuth {self.config["YA_DISK_DATA"]["y_api_token"]}'
-                                                    }).status_code
-                        if status_code == 202 or 200:
-                            self.check_url_list.append(url_list[i][0])
-                            counter += 1
-                        print(f"upload file to yandex disk (folder: {self.subfolder_path}):"
-                              f" №" + str(counter + 1) + " response code " + f"{status_code}")
+        for i in tqdm(range(len(url_list)), token=os.environ.get("BOT_TOKEN"), chat_id=self.bot_chat_id):
+            if status_code == 202 or 200 or 0 and counter < 20:
+                try:
+                    filename = str(counter + 1) + '_' + str(random.randint(1153, 546864))
+                    time.sleep(0.1)
+                    response = requests.post(f"{self.URL}/upload?",
+                                             params={
+                                                 'path': f'{subfolder_path}/{filename}.{url_list[i][1]}',
+                                                 'url': url_list[i][0],
+                                                 'overwrite': overwrite
+                                             },
+                                             headers={
+                                                 'Content-Type': 'application/json',
+                                                 'Accept': 'application/json',
+                                                 'Authorization': f'OAuth {self.config["YA_DISK_DATA"]["y_api_token"]}'
+                                             }).status_code
+                    status_code = response
+                    self.check_url_list += 1
+                    counter += 1
+                    print(f" Folder: {subfolder_path}. Response code: {status_code}")
 
-                    except requests.exceptions.RequestException:
-                        time.sleep(0.1)
-                        continue
-                elif status_code != 202 or 200 and counter > 10:
-                    break
-
-        self.count_uploaded_files = len(self.check_url_list)
+                except requests.exceptions.RequestException:
+                    time.sleep(0.1)
+                    continue
+            else:
+                break
 
         end = time.perf_counter()
         print(f'\nthe function upload_file() was executed for {end - start:0.4f} seconds')
-        print(f'uploaded {len(self.check_url_list)} files to Yandex Disk')
+        print(f'uploaded {self.check_url_list} files to Yandex Disk')
 
-        if len(self.check_url_list) == len(url_list):
+        if len(url_list) == self.check_url_list:
             self.upload_completed = True
 
+        elif (len(url_list) - self.check_url_list) < 20:
+            self.upload_completed = True
         else:
             self.upload_completed = False
 
-    def download_file(self, folder_name: str):
-        data = requests.get(f"{self.URL}/download?",
-                            params={
-                                'path': f"{self.main_folder}/{folder_name}",
-                            },
-                            headers={
-                                'Content-Type': 'application/json',
-                                'Accept': 'application/json',
-                                'Authorization': f'OAuth {self.config["YA_DISK_DATA"]["y_api_token"]}'
-                            }).json()
-        print(f'downloaded folder: {self.main_folder}/{folder_name}')
-        return data['href']
+    def get_link_file(self, folder_name: str):
+        try:
+            data = requests.get(f"{self.URL}/download?",
+                                params={
+                                    'path': f"{self.main_folder}/{folder_name}",
+                                },
+                                headers={
+                                    'Content-Type': 'application/json',
+                                    'Accept': 'application/json',
+                                    'Authorization': f'OAuth {self.config["YA_DISK_DATA"]["y_api_token"]}'
+                                }).json()
+            print(f'downloaded folder: {self.main_folder}/{folder_name}')
+            return data['href']
+        except KeyError as ke:
+            print('download_file()' + str(ke.args))
+            return ke.args

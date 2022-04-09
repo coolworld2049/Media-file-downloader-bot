@@ -13,15 +13,17 @@ from data import config
 class DownloadVk:
     def __init__(self):
         self.vk_app_id: int = 8109852
-        self.scopes: str = "photos,docs"
+        self.vk_api_v = 5.131
+        self.redirect_uri = 'https://oauth.vk.com/blank.html.com/blank.html'
+        self.scopes = "photos,docs"
         self.user_authorized = False
         self.bot_chat_id = ''
         self.all_photo_url_list = []
-        self.photo_url_list = []
+        self.photo_url_ext_list = []
         self.docs_url_ext_list = []
         self.photo_download_completed = False
         self.docs_download_completed = False
-        self.photo_url_list_size_MB: float = 0.0
+        self.photo_url_list_size_MB = 0.0
         self.album_folder_name = []
         self.curr_album_title = 'default'
         self.docs_folder_name = 'docs'
@@ -31,31 +33,41 @@ class DownloadVk:
     # authorization in user account
 
     def send_auth_link(self):
+        # response_type=code!
         oAuth_link = f"https://oauth.vk.com/authorize?client_id={self.vk_app_id}&display=page&" \
-                     f"redirect_uri=https://oauth.vk.com/blank.html" \
-                     f".com/blank.html&scope={self.scopes}&response_type=token&v=5.131"
+                     f"redirect_uri={self.redirect_uri}" \
+                     f"&scope={self.scopes}&response_type=code&v={self.vk_api_v}"
 
         return oAuth_link
 
-    def auth_vk(self, vk_response_url: str):
+    def auth_vk(self, vk_response: str):
         self.config.read(self.path_to_config)
 
         try:
-            split_url = vk_response_url.split('#').copy()
-            split_var = split_url[1].split('&')
-            if split_url[0] == 'https://oauth.vk.com/blank.html':
-                access_token = split_var[0].split('=')[-1:]
-                expires_in = split_var[1].split('=')[-1:]
-                user_id = split_var[2].split('=')[-1:]
+            split_link = vk_response.split('#').copy()
+            code = ''  # The parameter code can be used within 1 hour to get
+            # an access_token from your server.
 
-                self.config.set("VK_ACC_DATA", "vk_token", access_token[0])
-                self.config.set("VK_ACC_DATA", "vk_token_expires_in", expires_in[0])
-                self.config.set("VK_ACC_DATA", "vk_user_id", user_id[0])
+            if split_link[0] == 'https://oauth.vk.com/blank.html':
+                split_code = split_link[1].split('=')[-1:]
+                code: str = split_code[0]
+
+            get_access_token = requests.get('https://oauth.vk.com/access_token',
+                                            params={
+                                                'client_id': self.vk_app_id,
+                                                'client_secret': os.environ.get('vk_app_secret'),
+                                                'redirect_uri': self.redirect_uri,
+                                                'code': code
+                                            }).json()
+            if get_access_token['access_token']:
+                self.config.set("VK_ACC_DATA", "vk_token", str(get_access_token['access_token']))
+                self.config.set("VK_ACC_DATA", "vk_token_expires_in", str(get_access_token['expires_in']))
+                self.config.set("VK_ACC_DATA", "vk_user_id", str(get_access_token['user_id']))
                 self.config.write(open("config.ini", "w"))
                 self.user_authorized = True
-                return "Вы авторизованы в Vk!"
+                return 'Вы успешно авторизовались в VK!'
             else:
-                return f"Ошибка авторизации в Vk!"
+                return f'При авторизации произошла ошибка {get_access_token["error_description"]}'
         except Exception as e:
             self.user_authorized = False
             return f"Ошибка авторизации в Vk! {e.args}"
@@ -159,7 +171,7 @@ class DownloadVk:
         try:
             if self.user_authorized:
                 # get album id and photo id - getAll
-                data = self.get_all_photos()
+                data: dict = self.get_all_photos()
                 album_id_photo_id = []
                 count = 200
                 i = 0
@@ -172,16 +184,16 @@ class DownloadVk:
         except Exception as e:
             return e.args
 
-    def display_albums(self, albums_data=True, albums_size=False):
+    def display_albums(self, get_id_title=True, get_id_title_size_thumb=False):
         try:
-            if self.user_authorized and albums_data and not albums_size:
+            if self.user_authorized and get_id_title and not get_id_title_size_thumb:
                 json_data = self.get_albums()
                 albums_id_title = []
                 for albums in json_data["response"]["items"]:
                     albums_id_title.append([albums["id"], albums["title"]])
                 return albums_id_title
 
-            if self.user_authorized and albums_size:
+            if self.user_authorized and get_id_title_size_thumb:
                 json_data = self.get_albums()
                 albums_id_title_size_thumb = []
                 for albums in json_data["response"]["items"]:
@@ -197,7 +209,7 @@ class DownloadVk:
     def display_albums_title(self, album_id: int):
         try:
             if self.user_authorized:
-                albums_id_and_title = self.display_albums(albums_data=True)
+                albums_id_and_title = self.display_albums(get_id_title=True)
                 for i in range(len(albums_id_and_title)):
                     if albums_id_and_title[i][0] == album_id:
                         return str(albums_id_and_title[i][1])
@@ -223,32 +235,33 @@ class DownloadVk:
         # 100 photo per 1 min
         if self.user_authorized:
             try:
-                self.photo_url_list.clear()
+                self.photo_url_ext_list.clear()
                 self.album_folder_name.clear()
                 self.photo_download_completed = False
 
                 albums_with_photos_list = self.albums_with_photos()
-                ownerAndPhotoId_list = []
+                ownerAndPhotoIdList = []
 
                 # list of photo IDs(ownerAndPhotoId_list) from the selected_album_id
                 for i in range(len(albums_with_photos_list)):
                     if albums_with_photos_list[i][0] == selected_album_id:
-                        ownerAndPhotoId_list.append(albums_with_photos_list[i][1])
+                        ownerAndPhotoIdList.append(albums_with_photos_list[i][1])
 
                 # get album id and photo id - getAll
-                if len(ownerAndPhotoId_list) > 50:
+                if len(ownerAndPhotoIdList) > 50:
                     limit = 20
                     length_to_split = []
-                    count_in_subliist = len(ownerAndPhotoId_list) // limit
-                    remainder = len(ownerAndPhotoId_list) - (count_in_subliist * limit)
+                    count_in_subliist = len(ownerAndPhotoIdList) // limit
+                    remainder = len(ownerAndPhotoIdList) - (count_in_subliist * limit)
 
                     for _ in range(count_in_subliist):
                         length_to_split.append(limit)
                     if remainder > 0:
                         length_to_split.append(remainder)
-
                     print(length_to_split)
-                    output = [list(islice(ownerAndPhotoId_list, elem)) for elem in length_to_split]
+
+                    # split photo_id list to sublists of size length_to_split
+                    output = [list(islice(ownerAndPhotoIdList, elem)) for elem in length_to_split]
                     print(output)
 
                     for index in tqdm(range(len(output)), token=os.environ.get("BOT_TOKEN"), chat_id=self.bot_chat_id):
@@ -256,29 +269,23 @@ class DownloadVk:
                         data = self.get_photo_by_id(output[index])
                         for item in data['response']:
                             # loaded photos URL
-                            self.photo_url_list.append(item["sizes"][-1]["url"])
+                            self.photo_url_ext_list.append([item["sizes"][-1]["url"], '.jpg'])
                             print(item["sizes"][-1]["url"])
-
                 else:
-                    data = self.get_photo_by_id(ownerAndPhotoId_list)
+                    data = self.get_photo_by_id(ownerAndPhotoIdList)
                     for item in tqdm(data['response'], token=os.environ.get("BOT_TOKEN"), chat_id=self.bot_chat_id):
-                        time.sleep(0.1)
-                        photo_size = requests.get(item['sizes'][-1]['url']).content
-                        self.photo_url_list_size_MB += len(photo_size) / 1048576
-
-                        self.photo_url_list.append([item["sizes"][-1]["url"]])
+                        self.photo_url_ext_list.append([item["sizes"][-1]["url"], '.jpg'])
                         print(item["sizes"][-1]["url"])
 
             except KeyError as ke:
                 print(f'save_album_by_id(). KeyError {ke.args}')
 
             finally:
-                if len(self.photo_url_list) != 0:
+                if len(self.photo_url_ext_list) != 0:
                     self.photo_download_completed = True
-
                 end = time.perf_counter()
                 print(f'the function save_photo_by_id() was executed for {end - start:0.4f} seconds')
-                print(f'downloaded {len(self.photo_url_list)} photo from vk')
+                print(f'downloaded {len(self.photo_url_ext_list)} photo from vk')
                 print(f'photos weight: {self.photo_url_list_size_MB}')
 
     def save_all_photo(self):
@@ -296,14 +303,14 @@ class DownloadVk:
                 while i <= tqdm(data["response"]["count"], token=os.environ.get("BOT_TOKEN"), chat_id=self.bot_chat_id):
                     data = self.get_all_photos(offset=i, count=count)
                     for item in data["response"]["items"]:
-                        self.all_photo_url_list.append(item['sizes'][-1]['url'])
+                        self.all_photo_url_list.append([item['sizes'][-1]['url'], '.jpg'])
                     i += 200
 
             except Exception as e:
                 print(e.args)
 
             finally:
-                if len(self.photo_url_list) != 0:
+                if len(self.photo_url_ext_list) != 0:
                     self.photo_download_completed = True
 
                 end = time.perf_counter()
