@@ -27,7 +27,7 @@ async def callback_button_vk(callback_query: types.CallbackQuery):
         await bot.send_message(callback_query.from_user.id,
                                text=f'Для загрузки данных из вашего аккаунта требуется авторизация'
                                     f' Нажмите на кнопку и скопируйте АДРЕС из адресной'
-                                    f' строки в открывшемся окне браузера в чат:',
+                                    f' строки в чат:',
                                reply_markup=IK_button_vk)
         await MyStates.auth_vk.set()  # start FSM machine. state: waiting for user message
     else:
@@ -68,7 +68,7 @@ async def message_auth_vk(message: types.Message, state: FSMContext):
 
 def auth_ya_disk():
     IK_ya_auth = InlineKeyboardMarkup()
-    IK_ya_auth.add(InlineKeyboardButton('Авторизация в Yandex Disk', url=yandexDisk.auth_ya_disk_send_link()))
+    IK_ya_auth.add(InlineKeyboardButton('Авторизация в Yandex Disk', url=yandexDisk.send_link()))
     msg = 'Данные будут загружены в отдельную папку' \
           ' в вашем облачном хранилище Yandex Disk.' \
           ' Для авторизации нажмите на кнопку и скопируйте ТОКЕН' \
@@ -81,7 +81,7 @@ async def message_auth_ya_disk(message: types.Message, state: FSMContext):
     if not yandexDisk.user_authorized:
         async with state.proxy() as data:  # set the wait state
             data['token_ya_disk'] = message.text
-            ya_auth_msg = yandexDisk.auth_ya_disk(data['token_ya_disk'])  # auth
+            ya_auth_msg = yandexDisk.auth(data['token_ya_disk'])  # auth
         await bot.send_message(message.from_user.id, ya_auth_msg)  # auth result
         await state.finish()
 
@@ -131,7 +131,7 @@ def goto_select_vk_scope():
 
 @dp.callback_query_handler(lambda c: c.data == 'photos')
 async def callback_display_albums_list(callback_query: types.CallbackQuery):
-    album_list = downloadVk.display_albums(albums_data=False, albums_size=True)
+    album_list = downloadVk.display_albums(get_id_title=False, get_id_title_size_thumb=True)
     for album in album_list:
         for a_id, title, size, thumbnail in album:
             IK_albums_list = InlineKeyboardMarkup()
@@ -170,7 +170,7 @@ async def callback_save_all_photo(callback_query: types.CallbackQuery, state: FS
 
         if yandexDisk.upload_completed:
             await bot.send_message(callback_query.from_user.id, text=upload_result)
-            url_for_download = yandexDisk.download_file(downloadVk.curr_album_title)
+            url_for_download = yandexDisk.get_link_file(downloadVk.curr_album_title)
             await bot.send_message(callback_query.from_user.id,
                                    text=f'Ссылка для загрузки файлов:\n'
                                         f'{url_for_download}')
@@ -197,30 +197,24 @@ async def callback_save_album(callback_query: types.CallbackQuery, state: FSMCon
 
             downloadVk.save_album_by_id(callback_selected_album_id)
 
-            if downloadVk.photo_download_completed and (len(downloadVk.photo_url_list) > 0):
+            if downloadVk.photo_download_completed and (len(downloadVk.photo_url_ext_list) > 0):
 
                 # uploading photo to Yandex Disk
                 await bot.send_message(callback_query.from_user.id,
                                        text=f'Загрузка альбома в облачное хранилище')
 
                 downloadVk.curr_album_title = downloadVk.display_albums_title(callback_selected_album_id)
-                yandexDisk.upload_file(url_list=downloadVk.photo_url_list, folder_name=downloadVk.curr_album_title,
-                                       extension='jpg', is_extension=True, overwrite=False)
+                yandexDisk.upload_file(url_list=downloadVk.photo_url_ext_list, folder_name=downloadVk.curr_album_title,
+                                       overwrite=False)
 
-                if yandexDisk.upload_completed and (len(yandexDisk.check_url_list) > 0):
+                if yandexDisk.upload_completed and (yandexDisk.check_url_list > 0):
                     await bot.send_message(callback_query.from_user.id,
                                            text=f'Альбом загружен в облачное хранилище:\n'
-                                                f'Path "{yandexDisk.subfolder_path}]\n"'
+                                                f'Path "{yandexDisk.main_folder}/{downloadVk.curr_album_title}"\n'
                                                 f'Size {yandexDisk.count_uploaded_files}',
                                            reply_markup=types.ReplyKeyboardRemove())
 
-                    """downloadVk.save_files_locally()
-                    with open(f"Saved photos/{downloadVk.curr_album_title}" + ".jpg", "wb") as read_file:
-                        inputFile = InputFile(path_or_bytesio=f"Saved photos/{downloadVk.curr_album_title}",
-                                              filename='photos')
-                        await bot.send_document()"""
-
-                    url_for_download = yandexDisk.download_file(downloadVk.curr_album_title)
+                    url_for_download = yandexDisk.get_link_file(downloadVk.curr_album_title)
                     await bot.send_message(callback_query.from_user.id,
                                            text=f'Ссылка для загрузки файлов:\n'
                                                 f'{url_for_download}',
@@ -242,7 +236,7 @@ async def callback_save_album(callback_query: types.CallbackQuery, state: FSMCon
                                        reply_markup=types.ReplyKeyboardRemove())
                 await MyStates.save_album.set()
 
-            downloadVk.photo_url_list.clear()
+            downloadVk.photo_url_ext_list.clear()
 
         elif callback_query.data == 'save_all_photo':
             await MyStates.save_all_photo.set()
@@ -266,9 +260,9 @@ async def callback_save_docs(callback_query: types.CallbackQuery):
         await bot.send_message(callback_query.from_user.id,
                                text=f'Загрузка документов в облачное хранилище')
         yandexDisk.upload_file(url_list=downloadVk.docs_url_ext_list, folder_name=downloadVk.docs_folder_name,
-                               is_extension=False, overwrite=False)
+                               overwrite=False)
         if yandexDisk.upload_completed:
-            url_for_download = yandexDisk.download_file(downloadVk.docs_folder_name)
+            url_for_download = yandexDisk.get_link_file(downloadVk.docs_folder_name)
             await bot.send_message(callback_query.from_user.id,
                                    text=f'Ссылка для загрузки файлов:\n'
                                         f'{url_for_download}')
