@@ -28,7 +28,6 @@ async def send_start(message: types.Message):
         [
             {
                 "user_id": message.from_user.id,
-                "chat_id": message.chat.id,
 
                 "vk_token": '',
                 "vk_user_id": 0,
@@ -50,10 +49,11 @@ async def send_start(message: types.Message):
     users_db[f"{message.from_user.id}"].create(
         {
             "id": int,
+
             "photo_url": str,
             "photo_ext": str,
-            "album_folder_name": str,
             "album_title": str,
+
             "docs_url": str,
             "docs_ext": str
         }, pk="id", if_not_exists=True)

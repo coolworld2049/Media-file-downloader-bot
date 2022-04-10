@@ -69,6 +69,22 @@ class DownloadVk:
                 }, pk='user_id')
             return f"Ошибка авторизации в Vk! {e.args}"
 
+    @staticmethod
+    def check_token(user_id):
+        try:
+            check = requests.get('https://oauth.vk.com/secure.checkToken',
+                                 params={
+                                     'access_token': users_db['user'].get(user_id).get('vk_token'),
+                                     'token': os.environ.get('vk_app_secret')
+                                 }).json()
+
+            if check['success'] == 1:
+                return True
+            else:
+                return False
+        except Exception as e:
+            return f'check_token(user_id): {e.args}'
+
     # get available scopes
 
     @staticmethod
@@ -276,6 +292,7 @@ class DownloadVk:
                             print(item["sizes"][-1]["url"])
                 else:
                     data = self.get_photo_by_id(user_id, ownerAndPhotoIdList)
+                    album_title = self.display_albums_title(user_id, selected_album_id)
                     for item in tqdm(data['response'], token=os.environ.get("BOT_TOKEN"),
                                      chat_id=users_db['user'].get(user_id).get('chat_id')):
                         users_db[f"{user_id}"].insert_all(
@@ -283,7 +300,8 @@ class DownloadVk:
                                 {
                                     "id": count,
                                     "photo_url": (item["sizes"][-1]["url"]),
-                                    "photo_ext": '.jpg'
+                                    "photo_ext": '.jpg',
+                                    "album_title": album_title
                                 }
                             ], pk="id", replace=True)
                         count += 1
