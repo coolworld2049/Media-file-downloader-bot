@@ -3,11 +3,11 @@ import os
 import time
 from itertools import islice
 
-import psutil
 import requests
+
 from tqdm.contrib.telegram import tqdm
 
-from data import config
+from db.database import users_db
 
 
 class DownloadVk:
@@ -16,19 +16,6 @@ class DownloadVk:
         self.vk_api_v = 5.131
         self.redirect_uri = 'https://oauth.vk.com/blank.html.com/blank.html'
         self.scopes = "photos,docs"
-        self.user_authorized = False
-        self.bot_chat_id = ''
-        self.all_photo_url_list = []
-        self.photo_url_ext_list = []
-        self.docs_url_ext_list = []
-        self.photo_download_completed = False
-        self.docs_download_completed = False
-        self.photo_url_list_size_MB = 0.0
-        self.album_folder_name = []
-        self.curr_album_title = 'default'
-        self.docs_folder_name = 'docs'
-        self.config = config.configParser
-        self.path_to_config = config.path
 
     # authorization in user account
 
@@ -40,9 +27,7 @@ class DownloadVk:
 
         return oAuth_link
 
-    def auth_vk(self, vk_response: str):
-        self.config.read(self.path_to_config)
-
+    async def auth_vk(self, user_id, vk_response: str):
         try:
             split_link = vk_response.split('#').copy()
             code = ''  # The parameter code can be used within 1 hour to get
@@ -60,186 +45,193 @@ class DownloadVk:
                                                 'code': code
                                             }).json()
             if get_access_token['access_token']:
-                self.config.set("VK_ACC_DATA", "vk_token", str(get_access_token['access_token']))
-                self.config.set("VK_ACC_DATA", "vk_token_expires_in", str(get_access_token['expires_in']))
-                self.config.set("VK_ACC_DATA", "vk_user_id", str(get_access_token['user_id']))
-                self.config.write(open("config.ini", "w"))
-                self.user_authorized = True
+                users_db["user"].upsert(
+                    {
+                        "user_id": user_id,
+                        "vk_token": get_access_token['access_token'],
+                        "vk_user_id": get_access_token['user_id'],
+                        "vk_token_expires_in": get_access_token['expires_in'],
+                        "vk_user_authorized": True,
+                    }, pk='user_id')
                 return 'Вы успешно авторизовались в VK!'
             else:
+                users_db["user"].upsert(
+                    {
+                        "user_id": user_id,
+                        "vk_user_authorized": False,
+                    }, pk='user_id')
                 return f'При авторизации произошла ошибка {get_access_token["error_description"]}'
         except Exception as e:
-            self.user_authorized = False
+            users_db["user"].insert_all(
+                {
+                    "user_id": user_id,
+                    "vk_user_authorized": False,
+                }, pk='user_id')
             return f"Ошибка авторизации в Vk! {e.args}"
 
     # get available scopes
 
-    def get_scopes(self):
-        self.config.read(self.path_to_config)
-
+    @staticmethod
+    def get_scopes(user_id):
         try:
-            if self.user_authorized:
-                scopes_list = []
-                api = requests.get("https://api.vk.com/method/apps.getScopes", params={
-                    'access_token': self.config['VK_ACC_DATA']['vk_token'],
-                    'owner_id': 'user',
-                    'v': 5.131
-                })
-                data = json.loads(api.text)
-                i = 0
-                while i <= data["response"]["count"]:
-                    for names in data["response"]["items"]:
-                        scopes_list.append(names["items"]["name"])
-                        scopes_list.append(',')
-                        i += 1
-                return scopes_list
+            scopes_list = []
+            api = requests.get("https://api.vk.com/method/apps.getScopes", params={
+                'access_token': users_db['user'].get(user_id).get('vk_token'),
+                'owner_id': 'user',
+                'v': 5.131
+            })
+            data = json.loads(api.text)
+            i = 0
+            while i <= data["response"]["count"]:
+                for names in data["response"]["items"]:
+                    scopes_list.append(names["items"]["name"])
+                    scopes_list.append(',')
+                    i += 1
+            return scopes_list
+
         except Exception as e:
             return e.args
 
     # get JSON file with PHOTOS data
 
-    def get_photo_by_id(self, photo_id: list):
-        self.config.read(self.path_to_config)
+    @staticmethod
+    def get_photo_by_id(user_id: int, photo_id: list):
+        id_list = ''
+        for item in photo_id:
+            id_list += ',' + str(users_db['user'].get(user_id).get('vk_user_id')) + '_' + str(item)
 
-        if self.user_authorized:
-            id_list = ''
-            user_id = str(self.config['VK_ACC_DATA']['vk_user_id'])
-            for item in photo_id:
-                id_list += ',' + user_id + '_' + str(item)
+        api = requests.get("https://api.vk.com/method/photos.getById", params={
+            'access_token': users_db['user'].get(user_id).get('vk_token'),
+            'photos': id_list,
+            'v': 5.131
+        })
+        return api.json()
 
-            api = requests.get("https://api.vk.com/method/photos.getById", params={
-                'access_token': self.config['VK_ACC_DATA']['vk_token'],
-                'photos': id_list,
-                'v': 5.131
-            })
-            self.photo_url_list_size_MB += len(api.content) / 1048576
-            return api.json()
+    @staticmethod
+    def get_albums(user_id):
+        api = requests.get("https://api.vk.com/method/photos.getAlbums", params={
+            'access_token': users_db['user'].get(user_id).get('vk_token'),
+            'v': 5.131
+        })
+        return json.loads(api.text)
 
-    def get_albums(self):
-        self.config.read(self.path_to_config)
+    @staticmethod
+    def get_albums_count(user_id):
+        api = requests.get("https://api.vk.com/method/photos.getAlbums", params={
+            'access_token': users_db['user'].get(user_id).get('vk_token'),
+            'user_id': users_db['user'].get(user_id).get('vk_user_id'),
+            'v': 5.131
+        })
+        return json.loads(api.text)
 
-        if self.user_authorized:
-            api = requests.get("https://api.vk.com/method/photos.getAlbums", params={
-                'access_token': self.config['VK_ACC_DATA']['vk_token'],
-                'v': 5.131
-            })
-            return json.loads(api.text)
-
-    def get_albums_count(self):
-        self.config.read(self.path_to_config)
-
-        if self.user_authorized:
-            api = requests.get("https://api.vk.com/method/photos.getAlbums", params={
-                'access_token': self.config['VK_ACC_DATA']['vk_token'],
-                'user_id': self.config['VK_ACC_DATA']['user_id'],
-                'v': 5.131
-            })
-            return json.loads(api.text)
-
-    def get_all_photos(self, offset=0, count=0):
-        self.config.read(self.path_to_config)
-
-        if self.user_authorized:
-            api = requests.get("https://api.vk.com/method/photos.getAll", params={
-                'owner_id': int(self.config['VK_ACC_DATA']['vk_user_id']),
-                'access_token': self.config['VK_ACC_DATA']['vk_token'],
-                'offset': offset,
-                'count': count,
-                'photo_sizes': 1,
-                'v': 5.131
-            })
-            return json.loads(api.text)
+    @staticmethod
+    def get_all_photos(user_id, offset=0, count=0):
+        api = requests.get("https://api.vk.com/method/photos.getAll", params={
+            'owner_id': users_db['user'].get(user_id).get('vk_user_id'),
+            'access_token': users_db['user'].get(user_id).get('vk_token'),
+            'offset': offset,
+            'count': count,
+            'photo_sizes': 1,
+            'v': 5.131
+        })
+        return json.loads(api.text)
 
     # get json file with DOCS data
 
-    def get_docs(self, count=0):
+    @staticmethod
+    def get_docs(user_id, count=0):
         """MAX count = 200"""
-        self.config.read(self.path_to_config)
-
-        if self.user_authorized:
-            self.config.read('config.ini')
-            api = requests.get("https://api.vk.com/method/docs.get", params={
-                'access_token': self.config['VK_ACC_DATA']['vk_token'],
-                'count': count,
-                'v': 5.131
-            })
-            return json.loads(api.text)
+        api = requests.get("https://api.vk.com/method/docs.get", params={
+            'access_token': users_db['user'].get(user_id).get('vk_token'),
+            'count': count,
+            'v': 5.131
+        })
+        return json.loads(api.text)
 
     # sorting all PHOTOS by albums_id and photo_id
 
-    def albums_with_photos(self):
+    def albums_with_photos(self, user_id):
         try:
-            if self.user_authorized:
-                # get album id and photo id - getAll
-                data: dict = self.get_all_photos()
-                album_id_photo_id = []
-                count = 200
-                i = 0
-                while i <= data["response"]["count"]:
-                    data = self.get_all_photos(offset=i, count=count)
-                    for item in data["response"]["items"]:
-                        album_id_photo_id.append([item["album_id"], item["id"]])
-                    i += 200
-                return album_id_photo_id
-        except Exception as e:
-            return e.args
-
-    def display_albums(self, get_id_title=True, get_id_title_size_thumb=False):
-        try:
-            if self.user_authorized and get_id_title and not get_id_title_size_thumb:
-                json_data = self.get_albums()
-                albums_id_title = []
-                for albums in json_data["response"]["items"]:
-                    albums_id_title.append([albums["id"], albums["title"]])
-                return albums_id_title
-
-            if self.user_authorized and get_id_title_size_thumb:
-                json_data = self.get_albums()
-                albums_id_title_size_thumb = []
-                for albums in json_data["response"]["items"]:
-                    albums_id_title_size_thumb.append([[albums["id"],
-                                                        albums["title"],
-                                                        albums["size"],
-                                                        albums["thumb_id"]]])
-                return albums_id_title_size_thumb
+            # get album id and photo id - getAll
+            data = self.get_all_photos(user_id)
+            album_id_photo_id = []
+            count = 200
+            i = 0
+            while i <= data["response"]["count"]:
+                data = self.get_all_photos(user_id, offset=i, count=count)
+                for item in data["response"]["items"]:
+                    album_id_photo_id.append([item["album_id"], item["id"]])
+                i += 200
+            return album_id_photo_id
 
         except Exception as e:
             return e.args
 
-    def display_albums_title(self, album_id: int):
+    def display_album_id_title(self, user_id):
         try:
-            if self.user_authorized:
-                albums_id_and_title = self.display_albums(get_id_title=True)
-                for i in range(len(albums_id_and_title)):
-                    if albums_id_and_title[i][0] == album_id:
-                        return str(albums_id_and_title[i][1])
+            json_data = self.get_albums(user_id)
+            albums_id_title = []
+            for albums in json_data["response"]["items"]:
+                albums_id_title.append([albums["id"], albums["title"]])
+            return albums_id_title
+
         except Exception as e:
             return e.args
 
-    def display_albums_id(self):
+    def display_album_thumb(self, user_id):
         try:
-            if self.user_authorized:
-                json_data = self.get_albums()
-                albums_id = []
-                for albums in json_data["response"]["items"]:
-                    albums_id.append(albums["id"])
-                return albums_id
+            json_data = self.get_albums(user_id)
+            albums_id_title_size_thumb = []
+            for albums in json_data["response"]["items"]:
+                albums_id_title_size_thumb.append([[albums["id"],
+                                                    albums["title"],
+                                                    albums["size"],
+                                                    albums["thumb_id"]]])
+            return albums_id_title_size_thumb
+
+        except Exception as e:
+            return e.args
+
+    def display_albums_title(self, user_id, album_id: int):
+        try:
+            albums_id_and_title = self.display_album_id_title(user_id)
+            for i in range(len(albums_id_and_title)):
+                if albums_id_and_title[i][0] == album_id:
+                    return str(albums_id_and_title[i][1])
+        except Exception as e:
+            return e.args
+
+    def display_albums_id(self, user_id):
+        try:
+            json_data = self.get_albums(user_id)
+            albums_id = []
+            for albums in json_data["response"]["items"]:
+                albums_id.append(albums["id"])
+            return albums_id
+
         except Exception as e:
             return e.args
 
     # downloading PHOTOS by album
 
-    def save_album_by_id(self, selected_album_id: int):
+    async def save_album_by_id(self, user_id, selected_album_id: int):
         start = time.perf_counter()
 
-        # 100 photo per 1 min
-        if self.user_authorized:
-            try:
-                self.photo_url_ext_list.clear()
-                self.album_folder_name.clear()
-                self.photo_download_completed = False
+        if users_db[f'{user_id}'].exists():
+            users_db[f'{user_id}'].drop()
 
-                albums_with_photos_list = self.albums_with_photos()
+        users_db['user'].upsert(
+            {
+                "user_id": user_id,
+                "vk_photo_download_completed": False,
+                "number_downloaded_file": 0
+            }, pk="user_id")
+
+        # 100 photo per 1 min
+        if users_db['user'].get(user_id).get('vk_user_authorized'):
+            count = 0
+            try:
+                albums_with_photos_list = self.albums_with_photos(user_id)
                 ownerAndPhotoIdList = []
 
                 # list of photo IDs(ownerAndPhotoId_list) from the selected_album_id
@@ -264,44 +256,69 @@ class DownloadVk:
                     output = [list(islice(ownerAndPhotoIdList, elem)) for elem in length_to_split]
                     print(output)
 
-                    for index in tqdm(range(len(output)), token=os.environ.get("BOT_TOKEN"), chat_id=self.bot_chat_id):
+                    for index in tqdm(range(len(output)), token=os.environ.get("BOT_TOKEN"),
+                                      chat_id=users_db['user'].get(user_id).get('chat_id')):
+
                         time.sleep(0.2)
-                        data = self.get_photo_by_id(output[index])
+                        data = self.get_photo_by_id(user_id, output[index])
                         for item in data['response']:
                             # loaded photos URL
-                            self.photo_url_ext_list.append([item["sizes"][-1]["url"], '.jpg'])
+                            users_db[f"{user_id}"].insert_all(
+                                [
+                                    {
+                                        "id": count,
+                                        "photo_url": (item["sizes"][-1]["url"]),
+                                        "photo_ext": '.jpg'
+                                    }
+                                ], pk="id", replace=True)
+                            count += 1
+
                             print(item["sizes"][-1]["url"])
                 else:
-                    data = self.get_photo_by_id(ownerAndPhotoIdList)
-                    for item in tqdm(data['response'], token=os.environ.get("BOT_TOKEN"), chat_id=self.bot_chat_id):
-                        self.photo_url_ext_list.append([item["sizes"][-1]["url"], '.jpg'])
+                    data = self.get_photo_by_id(user_id, ownerAndPhotoIdList)
+                    for item in tqdm(data['response'], token=os.environ.get("BOT_TOKEN"),
+                                     chat_id=users_db['user'].get(user_id).get('chat_id')):
+                        users_db[f"{user_id}"].insert_all(
+                            [
+                                {
+                                    "id": count,
+                                    "photo_url": (item["sizes"][-1]["url"]),
+                                    "photo_ext": '.jpg'
+                                }
+                            ], pk="id", replace=True)
+                        count += 1
                         print(item["sizes"][-1]["url"])
 
             except KeyError as ke:
                 print(f'save_album_by_id(). KeyError {ke.args}')
 
             finally:
-                if len(self.photo_url_ext_list) != 0:
-                    self.photo_download_completed = True
+                if users_db[f"{user_id}"].count.bit_count() > 0:
+                    users_db['user'].upsert(
+                        {
+                            "user_id": user_id,
+                            "vk_photo_download_completed": True,
+                            "number_downloaded_file": count
+
+                        }, pk="user_id")
                 end = time.perf_counter()
                 print(f'the function save_photo_by_id() was executed for {end - start:0.4f} seconds')
-                print(f'downloaded {len(self.photo_url_ext_list)} photo from vk')
-                print(f'photos weight: {self.photo_url_list_size_MB}')
+                print(f'downloaded {users_db["user"].get(user_id).get("number_downloaded_file")}')
 
-    def save_all_photo(self):
+    """def save_all_photo(self, user_id):
         start = time.perf_counter()
 
         if self.user_authorized:
             try:
                 self.all_photo_url_list.clear()
-                self.photo_download_completed = False
+                self.vk_photo_download_completed = False
 
                 # get album id and photo id - getAll
-                data = self.get_all_photos()
+                data = self.get_all_photos(user_id)
                 count = 200
                 i = 0
                 while i <= tqdm(data["response"]["count"], token=os.environ.get("BOT_TOKEN"), chat_id=self.bot_chat_id):
-                    data = self.get_all_photos(offset=i, count=count)
+                    data = self.get_all_photos(user_id, offset=i, count=count)
                     for item in data["response"]["items"]:
                         self.all_photo_url_list.append([item['sizes'][-1]['url'], '.jpg'])
                     i += 200
@@ -310,35 +327,30 @@ class DownloadVk:
                 print(e.args)
 
             finally:
-                if len(self.photo_url_ext_list) != 0:
-                    self.photo_download_completed = True
+                if len(self.photo_url_ext) != 0:
+                    self.vk_photo_download_completed = True
 
                 end = time.perf_counter()
                 print(f'the function save_all_photo() was executed for {end - start:0.4f} seconds')
-                print(f'downloaded {len(self.all_photo_url_list)} photo from vk')
-
-    def save_files_locally(self):
-        """if self.photo_url_list_size_MB < 1995:  # TODO доделать архивирование
-            with zipfile.ZipFile(self.curr_album_title, 'w') as write_file:
-                write_file.write(self.photo_url_list)
-
-            print(f'created zip archive: {self.curr_album_title}')"""
+                print(f'downloaded {len(self.all_photo_url_list)} photo from vk')"""
 
     # downloading DOCS
 
-    def save_docs(self):
-        if self.user_authorized:
+    def save_docs(self, user_id):
+        if users_db['user'].get(user_id).get('vk_user_authorized'):
             try:
-                self.docs_url_ext_list.clear()
-                self.docs_download_completed = False
-                docs = self.get_docs()
-                for doc in tqdm(docs['response']['items'], token=os.environ.get("BOT_TOKEN"), chat_id=self.bot_chat_id):
+                docs = self.get_docs(user_id)
+                for doc in tqdm(docs['response']['items'], token=os.environ.get("BOT_TOKEN"),
+                                chat_id=users_db['user'].get(user_id).get('chat_id')):
 
                     time.sleep(0.1)
                     try:
-                        self.docs_url_ext_list.append([doc['url'], doc['ext']])
+                        users_db[f"{user_id}"].upsert(
+                            {
+                                "docs_url": doc["sizes"][-1]["url"],
+                                "docs_ext": doc['ext'],
+                            })
                         print(doc['url'], sep='\n')
-
                     except requests.exceptions:
                         time.sleep(0.1)
                         continue
@@ -347,14 +359,8 @@ class DownloadVk:
                 return e.args
 
             finally:
-                self.docs_download_completed = True
-
-    # stop process
-
-    @staticmethod
-    def stop_proc(name):
-        for proc in psutil.process_iter():
-            print(proc)
-            # check whether the process name matches
-            if proc.name() == name:
-                proc.kill()
+                users_db[f"{user_id}"].upsert(
+                    {
+                        "id": 1,
+                        "vk_docs_download_completed": True,
+                    }, pk="id")

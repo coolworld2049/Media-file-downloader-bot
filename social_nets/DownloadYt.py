@@ -1,4 +1,4 @@
-from pytube import YouTube, Playlist
+from pytube import YouTube
 
 
 class DownloadYt:
