@@ -1,4 +1,3 @@
-[![linting: pylint](https://img.shields.io/badge/linting-pylint-yellowgreen)](https://github.com/PyCQA/pylint)
 
 Media-downloader
 --------
@@ -15,4 +14,3 @@ Vk:
  - Download user's albums
  - Download user's documents
  
-![img.png](img.png)
