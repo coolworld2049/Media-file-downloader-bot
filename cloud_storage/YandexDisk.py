@@ -53,40 +53,54 @@ class YandexDisk:
                                 }).json()
         return meta_dir
 
-    def create_folder(self, user_id, folder_name):
-        resp = requests.put(f'{self.URL}?',
-                            params={
-                                'path': f'{folder_name}',
-                            },
-                            headers={
-                                'Content-Type': 'application/json',
-                                'Accept': 'application/json',
-                                'Authorization': f'OAuth {users_db["user"].get(user_id).get("y_api_token")}'
-                            }).status_code
-        print(f'Create dir /{folder_name} in cloud storage. Response code: {str(resp)}')
+    def create_folder(self, user_id, folder_name, attempts=10):
+        resp = 0
+        count = 0
+        while resp != 201 or count < attempts:
+            time.sleep(0.1)
+            resp = requests.put(f'{self.URL}?',
+                                params={
+                                    'path': f'{folder_name}',
+                                },
+                                headers={
+                                    'Content-Type': 'application/json',
+                                    'Accept': 'application/json',
+                                    'Authorization': f'OAuth {users_db["user"].get(user_id).get("y_api_token")}'
+                                }).status_code
+            print(f'Try create dir {folder_name} in cloud storage. Response code: {str(resp)}')
+            if resp == 201:
+                return True
+            elif resp == 423:
+                attempts += 1
+                continue
+            else:
+                count += 1
+                return False
 
-        if resp == 201:
-            return True
-        else:
-            return False
-
-    def delete_folder(self, user_id, folder_name):
-        resp = requests.delete(f'{self.URL}?',
-                               params={
-                                   'path': f'{folder_name}',
-                                   'permanently': True
-                               },
-                               headers={
-                                   'Content-Type': 'application/json',
-                                   'Accept': 'application/json',
-                                   'Authorization': f'OAuth {users_db["user"].get(user_id).get("y_api_token")}'
-                               }).status_code
-        print('Delete dir ' + folder_name + ' in cloud storage. Response code: ' + str(resp))
-
-        if resp == 200 or 202 or 204:
-            return True
-        else:
-            return False
+    def delete_folder(self, user_id, folder_name, attempts=3):
+        resp = 0
+        count = 0
+        while resp != (200 or 202 or 204) or (count < attempts):
+            time.sleep(0.1)
+            resp = requests.delete(f'{self.URL}?',
+                                   params={
+                                       'path': f'{folder_name}',
+                                       'permanently': True
+                                   },
+                                   headers={
+                                       'Content-Type': 'application/json',
+                                       'Accept': 'application/json',
+                                       'Authorization': f'OAuth {users_db["user"].get(user_id).get("y_api_token")}'
+                                   }).status_code
+            print('Try delete dir ' + folder_name + ' in cloud storage. Response code: ' + str(resp))
+            if resp == 200 or 202 or 204:
+                return True
+            elif resp == 423:
+                attempts += 1
+                continue
+            else:
+                count += 1
+                return False
 
     async def upload_file(self, user_id: int, url_list: list, folder_name: str, overwrite: bool = False):
         """
@@ -104,77 +118,74 @@ class YandexDisk:
                 "number_uploaded_file": 0
             }, pk="user_id")
 
-        self.create_folder(user_id, self.main_folder)
-        time.sleep(0.2)
-
         subfolder_path = f'{self.main_folder}/{folder_name}'
+        # rewriting main_folder in cloud
+        if self.delete_folder(user_id, self.main_folder):
+            if self.create_folder(user_id, self.main_folder):
+                # rewriting subfolder in cloud
+                subfolders_on_disk = self.get_folders(user_id)
+                if len(subfolders_on_disk) != 3 and subfolders_on_disk['_embedded']['items'] != 0:
+                    for a in subfolders_on_disk['_embedded']['items']:
+                        if a['name'] == folder_name:
+                            if self.delete_folder(user_id, subfolder_path):
+                                break
 
-        """subfolders_on_disk = self.get_folders(user_id)
-        # rewriting folder in cloud
-        if len(subfolders_on_disk) != 3 and subfolders_on_disk['_embedded']['items'] != 0:
-            for a in subfolders_on_disk['_embedded']['items']:
-                if a['name'] == folder_name:
-                    self.delete_folder(user_id, subfolder_path)"""
+        if self.create_folder(user_id, subfolder_path):
+            status_code = 0
+            counter = 0
+            for i in tqdm(range(len(url_list)), token=os.environ.get("BOT_TOKEN"),
+                          chat_id=user_id):
+                if status_code == 202 or 200 or 0 and counter < 20:
+                    try:
+                        filename = str(counter + 1) + '_file'
+                        time.sleep(0.02)
+                        response = requests.post(f"{self.URL}/upload?",
+                                                 params={
+                                                     'path': f'{subfolder_path}/{filename}{url_list[i][1]}',
+                                                     'url': url_list[i][0],
+                                                     'overwrite': overwrite
+                                                 },
+                                                 headers={
+                                                     'Content-Type': 'application/json',
+                                                     'Accept': 'application/json',
+                                                     'Authorization': f'OAuth {users_db["user"].get(user_id).get("y_api_token")}'
+                                                 }).status_code
 
-        time.sleep(0.2)
-        self.create_folder(user_id, subfolder_path)
+                        status_code = response
+                        counter += 1
+                        print(f" Folder: {subfolder_path}. Response code: {status_code}")
 
-        status_code = 0
-        counter = 0
+                    except requests.exceptions.RequestException:
+                        time.sleep(0.1)
+                        continue
+                else:
+                    break
 
-        for i in tqdm(range(len(url_list)), token=os.environ.get("BOT_TOKEN"),
-                      chat_id=users_db['user'].get(user_id).get('chat_id')):
-            if status_code == 202 or 200 or 0 and counter < 20:
-                try:
-                    filename = str(counter + 1) + '_file'
-                    time.sleep(0.1)
-                    response = requests.post(f"{self.URL}/upload?",
-                                             params={
-                                                 'path': f'{subfolder_path}/{filename}{url_list[i][1]}',
-                                                 'url': url_list[i][0],
-                                                 'overwrite': overwrite
-                                             },
-                                             headers={
-                                                 'Content-Type': 'application/json',
-                                                 'Accept': 'application/json',
-                                                 'Authorization': f'OAuth {users_db["user"].get(user_id).get("y_api_token")}'
-                                             }).status_code
+            users_db['user'].upsert(
+                {
+                    "user_id": user_id,
+                    "number_uploaded_file": counter
+                }, pk="user_id")
 
-                    status_code = response
-                    counter += 1
-                    print(f" Folder: {subfolder_path}. Response code: {status_code}")
+            if len(url_list) == users_db["user"].get(user_id).get("number_uploaded_file"):
+                users_db["user"].upsert(
+                    {
+                        "user_id": user_id,
+                        "ya_upload_completed": True,
+                    }, pk='user_id')
 
-                except requests.exceptions.RequestException:
-                    time.sleep(0.1)
-                    continue
+            elif (len(url_list) - users_db["user"].get(user_id).get("number_uploaded_file")) < 20:
+                users_db["user"].upsert(
+                    {
+                        "user_id": user_id,
+                        "ya_upload_completed": True,
+                    }, pk='user_id')
             else:
-                break
-
-        users_db['user'].upsert(
-            {
-                "user_id": user_id,
-                "number_uploaded_file": counter
-            }, pk="user_id")
-
-        if len(url_list) == users_db["user"].get(user_id).get("number_uploaded_file"):
-            users_db["user"].upsert(
-                {
-                    "user_id": user_id,
-                    "ya_upload_completed": True,
-                }, pk='user_id')
-
-        elif (len(url_list) - users_db["user"].get(user_id).get("number_uploaded_file")) < 20:
-            users_db["user"].upsert(
-                {
-                    "user_id": user_id,
-                    "ya_upload_completed": True,
-                }, pk='user_id')
-        else:
-            users_db["user"].upsert(
-                {
-                    "user_id": user_id,
-                    "ya_upload_completed": False,
-                }, pk='user_id')
+                users_db["user"].upsert(
+                    {
+                        "user_id": user_id,
+                        "ya_upload_completed": False,
+                    }, pk='user_id')
 
         end = time.perf_counter()
         print(f'\nthe function upload_file() was executed for {end - start:0.4f} seconds')

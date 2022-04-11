@@ -28,7 +28,10 @@ async def send_start(message: types.Message):
         [
             {
                 "user_id": message.from_user.id,
-
+                "username": message.from_user.username,
+                "first_name": message.from_user.first_name,
+                "last_name": message.from_user.last_name,
+                "language_code": message.from_user.language_code,
                 "vk_token": '',
                 "vk_user_id": 0,
                 "vk_token_expires_in": 0,
@@ -36,24 +39,20 @@ async def send_start(message: types.Message):
                 "vk_photo_download_completed": False,
                 "vk_docs_download_completed": False,
                 "number_downloaded_file": 0,
-
                 "y_app_id": '131f4986553d493184f6a5e5af832174',
                 "y_api_token": '',
                 "ya_user_authorized": False,
                 "ya_upload_completed": False,
                 "number_uploaded_file": 0
-
             }
         ], pk="user_id", ignore=True)
 
     users_db[f"{message.from_user.id}"].create(
         {
             "id": int,
-
             "photo_url": str,
             "photo_ext": str,
             "album_title": str,
-
             "docs_url": str,
             "docs_ext": str
         }, pk="id", if_not_exists=True)

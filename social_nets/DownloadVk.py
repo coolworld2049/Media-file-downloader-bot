@@ -7,6 +7,7 @@ import requests
 
 from tqdm.contrib.telegram import tqdm
 
+from core import bot
 from db.database import users_db
 
 
@@ -111,7 +112,7 @@ class DownloadVk:
     # get JSON file with PHOTOS data
 
     @staticmethod
-    def get_photo_by_id(user_id: int, photo_id: list):
+    def get_photo_by_id(user_id: int, photo_id: list | set):
         id_list = ''
         for item in photo_id:
             id_list += ',' + str(users_db['user'].get(user_id).get('vk_user_id')) + '_' + str(item)
@@ -164,21 +165,22 @@ class DownloadVk:
         })
         return json.loads(api.text)
 
-    # sorting all PHOTOS by albums_id and photo_id
+    # get all PHOTOS by albums_id and photo_id
 
     def albums_with_photos(self, user_id):
         try:
             # get album id and photo id - getAll
             data = self.get_all_photos(user_id)
-            album_id_photo_id = []
+            album_id_photo_id = {}
             count = 200
             i = 0
+            # tqdm(, token = os.environ.get("BOT_TOKEN"), chat_id = user_id):
             while i <= data["response"]["count"]:
                 data = self.get_all_photos(user_id, offset=i, count=count)
                 for item in data["response"]["items"]:
-                    album_id_photo_id.append([item["album_id"], item["id"]])
+                    album_id_photo_id[item["id"]] = item["album_id"]
                 i += 200
-            return album_id_photo_id
+            return album_id_photo_id.items()
 
         except Exception as e:
             return e.args
@@ -228,13 +230,43 @@ class DownloadVk:
         except Exception as e:
             return e.args
 
+    async def save_photo_id_album_id(self, user_id):
+        start = time.perf_counter()
+        users_db[f"{user_id}_albums"].create(
+            {
+                "photo_id": int,
+                "album_id": int,
+            }, pk="photo_id", if_not_exists=True)
+
+        photo_id_album_id_dict = self.albums_with_photos(user_id)
+
+        # set of photo IDs(ownerAndPhotoId_list) from the selected_album_id
+        for key, value in tqdm(photo_id_album_id_dict, token=os.environ.get("BOT_TOKEN"), chat_id=user_id):
+            users_db[f"{user_id}_albums"].insert_all(
+                [
+                    {
+                        "photo_id": key,
+                        "album_id": value
+                    }
+                ], pk="photo_id", replace=True)
+        end = time.perf_counter()
+        print(f'the function sorting_photos_into_albums() was executed for {end - start:0.4f} seconds')
+
     # downloading PHOTOS by album
 
     async def save_album_by_id(self, user_id, selected_album_id: int):
         start = time.perf_counter()
 
-        if users_db[f'{user_id}'].exists():
-            users_db[f'{user_id}'].drop()
+        users_db[f'{user_id}'].drop()
+        users_db[f"{user_id}"].create(
+            {
+                "id": int,
+                "photo_url": str,
+                "photo_ext": str,
+                "album_title": str,
+                "docs_url": str,
+                "docs_ext": str
+            }, pk="id", if_not_exists=True)
 
         users_db['user'].upsert(
             {
@@ -246,21 +278,22 @@ class DownloadVk:
         # 100 photo per 1 min
         if users_db['user'].get(user_id).get('vk_user_authorized'):
             count = 0
+            album_title = self.display_albums_title(user_id, selected_album_id)
+
             try:
-                albums_with_photos_list = self.albums_with_photos(user_id)
-                ownerAndPhotoIdList = []
+                photo_id_album_id_dict = self.albums_with_photos(user_id)
+                photoIdOfSelectedAlbum = set()
+                # set of photo IDs(ownerAndPhotoId_list) from the selected_album_id
+                for key, value in photo_id_album_id_dict:
+                    if value == selected_album_id:
+                        photoIdOfSelectedAlbum.add(key)
 
-                # list of photo IDs(ownerAndPhotoId_list) from the selected_album_id
-                for i in range(len(albums_with_photos_list)):
-                    if albums_with_photos_list[i][0] == selected_album_id:
-                        ownerAndPhotoIdList.append(albums_with_photos_list[i][1])
-
-                # get album id and photo id - getAll
-                if len(ownerAndPhotoIdList) > 50:
+                if len(photoIdOfSelectedAlbum) > 20:
+                    # get album id and photo id - getAll
                     limit = 20
                     length_to_split = []
-                    count_in_subliist = len(ownerAndPhotoIdList) // limit
-                    remainder = len(ownerAndPhotoIdList) - (count_in_subliist * limit)
+                    count_in_subliist = len(photoIdOfSelectedAlbum) // limit
+                    remainder = len(photoIdOfSelectedAlbum) - (count_in_subliist * limit)
 
                     for _ in range(count_in_subliist):
                         length_to_split.append(limit)
@@ -269,13 +302,11 @@ class DownloadVk:
                     print(length_to_split)
 
                     # split photo_id list to sublists of size length_to_split
-                    output = [list(islice(ownerAndPhotoIdList, elem)) for elem in length_to_split]
+                    output = [list(islice(photoIdOfSelectedAlbum, elem)) for elem in length_to_split]
                     print(output)
 
-                    for index in tqdm(range(len(output)), token=os.environ.get("BOT_TOKEN"),
-                                      chat_id=users_db['user'].get(user_id).get('chat_id')):
-
-                        time.sleep(0.2)
+                    for index in tqdm(range(len(output)), token=os.environ.get("BOT_TOKEN"), chat_id=user_id):
+                        time.sleep(0.3)
                         data = self.get_photo_by_id(user_id, output[index])
                         for item in data['response']:
                             # loaded photos URL
@@ -283,18 +314,18 @@ class DownloadVk:
                                 [
                                     {
                                         "id": count,
-                                        "photo_url": (item["sizes"][-1]["url"]),
-                                        "photo_ext": '.jpg'
+                                        "photo_url": item["sizes"][-1]["url"],
+                                        "photo_ext": '.jpg',
+                                        "album_title": album_title
                                     }
                                 ], pk="id", replace=True)
                             count += 1
 
                             print(item["sizes"][-1]["url"])
                 else:
-                    data = self.get_photo_by_id(user_id, ownerAndPhotoIdList)
-                    album_title = self.display_albums_title(user_id, selected_album_id)
+                    data = self.get_photo_by_id(user_id, photoIdOfSelectedAlbum)
                     for item in tqdm(data['response'], token=os.environ.get("BOT_TOKEN"),
-                                     chat_id=users_db['user'].get(user_id).get('chat_id')):
+                                     chat_id=user_id):
                         users_db[f"{user_id}"].insert_all(
                             [
                                 {
@@ -311,7 +342,7 @@ class DownloadVk:
                 print(f'save_album_by_id(). KeyError {ke.args}')
 
             finally:
-                if users_db[f"{user_id}"].count.bit_count() > 0:
+                if users_db[f"{user_id}"].count > 0:
                     users_db['user'].upsert(
                         {
                             "user_id": user_id,
@@ -358,11 +389,9 @@ class DownloadVk:
         if users_db['user'].get(user_id).get('vk_user_authorized'):
             try:
                 docs = self.get_docs(user_id)
-                for doc in tqdm(docs['response']['items'], token=os.environ.get("BOT_TOKEN"),
-                                chat_id=users_db['user'].get(user_id).get('chat_id')):
-
-                    time.sleep(0.1)
+                for doc in tqdm(docs['response']['items'], token=os.environ.get("BOT_TOKEN"), chat_id=user_id):
                     try:
+                        time.sleep(0.1)
                         users_db[f"{user_id}"].upsert(
                             {
                                 "docs_url": doc["sizes"][-1]["url"],
