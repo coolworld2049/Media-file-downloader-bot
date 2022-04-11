@@ -141,6 +141,8 @@ def goto_select_vk_scope():
 @dp.callback_query_handler(lambda c: c.data == 'photos')
 async def callback_display_albums_list(callback_query: types.CallbackQuery):
     if DownloadVk().check_token(callback_query.from_user.id):
+        # await DownloadVk().save_photo_id_album_id(callback_query.from_user.id)  # get all photos
+
         album_list = DownloadVk().display_album_thumb(callback_query.from_user.id)
         for album in album_list:
             for a_id, title, size, thumbnail in album:
@@ -208,14 +210,15 @@ async def callback_save_album(callback_query: types.CallbackQuery, state: FSMCon
                 await state.finish()
 
                 await bot.send_message(callback_query.from_user.id, text=f'Загрузка альбома из VK')
-                await DownloadVk().save_album_by_id(callback_query.from_user.id, callback_selected_album_id)
 
-                await bot.send_message(callback_query.from_user.id,
-                                       text=f'Загрузка альбома в облачное хранилище')
+                await DownloadVk().save_album_by_id(user_id, callback_selected_album_id)
+
                 if users_db['user'].get(user_id).get('vk_photo_download_completed'):
                     # uploading photo to Yandex Disk
+                    await bot.send_message(callback_query.from_user.id,
+                                           text=f'Загрузка альбома в облачное хранилище')
 
-                    curr_album_title = DownloadVk().display_albums_title(callback_query.from_user.id,
+                    curr_album_title = DownloadVk().display_albums_title(user_id,
                                                                          callback_selected_album_id)
                     photo_url_ext_list = []
                     for pk_id in range(users_db[f'{user_id}'].count):
@@ -236,7 +239,7 @@ async def callback_save_album(callback_query: types.CallbackQuery, state: FSMCon
                                                     f'Size {users_db["user"].get(user_id).get("number_uploaded_file")}',
                                                reply_markup=types.ReplyKeyboardRemove())
 
-                        url_for_download = await YandexDisk().get_link_file(user_id, curr_album_title)
+                        url_for_download = YandexDisk().get_link_file(user_id, curr_album_title)
                         await bot.send_message(callback_query.from_user.id,
                                                text=f'Ссылка для загрузки файлов:\n'
                                                     f'{url_for_download}',
