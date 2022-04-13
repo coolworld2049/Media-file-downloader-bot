@@ -1,3 +1,4 @@
+import asyncio
 import os
 import time
 
@@ -22,7 +23,7 @@ class YandexDisk:
         return link
 
     @staticmethod
-    def auth(user_id, ya_token: str):
+    async def auth(user_id, ya_token: str):
         if len(ya_token) == 39:
             users_db["user"].upsert(
                 {
@@ -42,6 +43,7 @@ class YandexDisk:
     # actions with user disk
 
     def get_folders(self, user_id):
+        time.sleep(0.05)
         meta_dir = requests.get(self.URL,
                                 params={
                                     'path': f'{self.main_folder}/'
@@ -53,11 +55,11 @@ class YandexDisk:
                                 }).json()
         return meta_dir
 
-    def create_folder(self, user_id, folder_name, attempts=10):
+    async def create_folder(self, user_id, folder_name, attempts=10):
         resp = 0
         count = 0
         while resp != 201 or count < attempts:
-            time.sleep(0.1)
+            time.sleep(0.05)
             resp = requests.put(f'{self.URL}?',
                                 params={
                                     'path': f'{folder_name}',
@@ -68,7 +70,7 @@ class YandexDisk:
                                     'Authorization': f'OAuth {users_db["user"].get(user_id).get("y_api_token")}'
                                 }).status_code
             print(f'Try create dir {folder_name} in cloud storage. Response code: {str(resp)}')
-            if resp == 201:
+            if resp == 201 or 409:
                 return True
             elif resp == 423:
                 attempts += 1
@@ -77,11 +79,11 @@ class YandexDisk:
                 count += 1
                 return False
 
-    def delete_folder(self, user_id, folder_name, attempts=3):
+    async def delete_folder(self, user_id, folder_name, attempts=3):
         resp = 0
         count = 0
         while resp != (200 or 202 or 204) or (count < attempts):
-            time.sleep(0.1)
+            time.sleep(0.05)
             resp = requests.delete(f'{self.URL}?',
                                    params={
                                        'path': f'{folder_name}',
@@ -120,17 +122,17 @@ class YandexDisk:
 
         subfolder_path = f'{self.main_folder}/{folder_name}'
         # rewriting main_folder in cloud
-        if self.delete_folder(user_id, self.main_folder):
-            if self.create_folder(user_id, self.main_folder):
-                # rewriting subfolder in cloud
-                subfolders_on_disk = self.get_folders(user_id)
-                if len(subfolders_on_disk) != 3 and subfolders_on_disk['_embedded']['items'] != 0:
-                    for a in subfolders_on_disk['_embedded']['items']:
-                        if a['name'] == folder_name:
-                            if self.delete_folder(user_id, subfolder_path):
+        if await self.create_folder(user_id, self.main_folder):
+            # rewriting subfolder in cloud
+            subfolders_on_disk = self.get_folders(user_id)
+            if len(subfolders_on_disk) != 3 and subfolders_on_disk['_embedded']['items'] != 0:
+                for a in subfolders_on_disk['_embedded']['items']:
+                    if a['name'] == folder_name:
+                        if await self.delete_folder(user_id, subfolder_path):
+                            if await self.create_folder(user_id, subfolder_path):
                                 break
 
-        if self.create_folder(user_id, subfolder_path):
+        if await self.create_folder(user_id, subfolder_path):
             status_code = 0
             counter = 0
             for i in tqdm(range(len(url_list)), token=os.environ.get("BOT_TOKEN"),
@@ -191,7 +193,7 @@ class YandexDisk:
         print(f'\nthe function upload_file() was executed for {end - start:0.4f} seconds')
         print(f'uploaded {users_db["user"].get(user_id).get("number_uploaded_file")}')
 
-    def get_link_file(self, user_id, folder_name: str):
+    async def get_link_file(self, user_id, folder_name: str):
         try:
             data = requests.get(f"{self.URL}/download?",
                                 params={

@@ -1,13 +1,10 @@
 import json
 import os
 import time
-from itertools import islice
 
 import requests
-
 from tqdm.contrib.telegram import tqdm
 
-from core import bot
 from db.database import users_db
 
 
@@ -15,7 +12,7 @@ class DownloadVk:
     def __init__(self):
         self.vk_app_id: int = 8109852
         self.vk_api_v = 5.131
-        self.redirect_uri = 'https://oauth.vk.com/blank.html.com/blank.html'
+        self.redirect_uri = 'https://oauth.vk.com/close.html'
         self.scopes = "photos,docs"
 
     # authorization in user account
@@ -24,67 +21,75 @@ class DownloadVk:
         # response_type=code!
         oAuth_link = f"https://oauth.vk.com/authorize?client_id={self.vk_app_id}&display=page&" \
                      f"redirect_uri={self.redirect_uri}" \
-                     f"&scope={self.scopes}&response_type=code&v={self.vk_api_v}"
+                     f"&scope={self.scopes}&revoke=1&response_type=code&v={self.vk_api_v}"
 
         return oAuth_link
 
     async def auth_vk(self, user_id, vk_response: str):
         try:
             split_link = vk_response.split('#').copy()
-            code = ''  # The parameter code can be used within 1 hour to get
-            # an access_token from your server.
 
             if split_link[0] == 'https://oauth.vk.com/blank.html':
                 split_code = split_link[1].split('=')[-1:]
-                code: str = split_code[0]
+                code = split_code[0]  # The parameter code can be used within 1 hour to get
+                # an access_token from your server.
 
-            get_access_token = requests.get('https://oauth.vk.com/access_token',
-                                            params={
-                                                'client_id': self.vk_app_id,
-                                                'client_secret': os.environ.get('vk_app_secret'),
-                                                'redirect_uri': self.redirect_uri,
-                                                'code': code
-                                            }).json()
-            if get_access_token['access_token']:
-                users_db["user"].upsert(
-                    {
-                        "user_id": user_id,
-                        "vk_token": get_access_token['access_token'],
-                        "vk_user_id": get_access_token['user_id'],
-                        "vk_token_expires_in": get_access_token['expires_in'],
-                        "vk_user_authorized": True,
-                    }, pk='user_id')
-                return 'Вы успешно авторизовались в VK!'
+                get_access_token = requests.get('https://oauth.vk.com/access_token',
+                                                params={
+                                                    'client_id': self.vk_app_id,
+                                                    'client_secret': os.environ.get('vk_app_secret'),
+                                                    'redirect_uri': self.redirect_uri,
+                                                    'code': code
+                                                }).json()
+                if get_access_token['access_token']:
+                    users_db["user"].upsert(
+                        {
+                            "user_id": user_id,
+                            "vk_token": get_access_token['access_token'],
+                            "vk_user_id": get_access_token['user_id'],
+                            "vk_token_expires_in": get_access_token['expires_in'],
+                            "vk_user_authorized": True,
+                        }, pk='user_id')
+                    return 'Вы успешно авторизовались в VK!'
+                else:
+                    users_db["user"].upsert(
+                        {
+                            "user_id": user_id,
+                            "vk_user_authorized": False,
+                        }, pk='user_id')
+                    return f'При авторизации произошла ошибка {get_access_token["response"]}'
             else:
-                users_db["user"].upsert(
-                    {
-                        "user_id": user_id,
-                        "vk_user_authorized": False,
-                    }, pk='user_id')
-                return f'При авторизации произошла ошибка {get_access_token["error_description"]}'
+                return f'Вы ввели некорректную информацию'
         except Exception as e:
-            users_db["user"].insert_all(
+            users_db["user"].upsert(
                 {
                     "user_id": user_id,
-                    "vk_user_authorized": False,
+                    "vk_user_authorized": False
                 }, pk='user_id')
             return f"Ошибка авторизации в Vk! {e.args}"
 
     @staticmethod
     def check_token(user_id):
         try:
-            check = requests.get('https://oauth.vk.com/secure.checkToken',
+            check = requests.get('https://api.vk.com/method/secure.checkToken',
                                  params={
-                                     'access_token': users_db['user'].get(user_id).get('vk_token'),
-                                     'token': os.environ.get('vk_app_secret')
+                                     'access_token': os.environ.get('vk_app_service'),
+                                     'token': users_db['user'].get(user_id).get('vk_token'),
+                                     'v': 5.131
                                  }).json()
+            try:
+                if check['error']:
+                    print(f"user_id: {user_id} | checkToken: error_msg={check['error_msg']}")
+                    return False
 
-            if check['success'] == 1:
-                return True
-            else:
-                return False
-        except Exception as e:
-            return f'check_token(user_id): {e.args}'
+            except KeyError:
+                if check['response']['success'] == 1:
+                    print(f"user_id: {user_id} | checkToken: success={check['response']['success']}")
+                    return True
+
+        except KeyError as ke2:
+            print(f'KeyError check_token(user_id: {user_id}): {ke2.args}')
+            return False
 
     # get available scopes
 
@@ -107,22 +112,38 @@ class DownloadVk:
             return scopes_list
 
         except Exception as e:
+            print(f'get_scopes(user_id): {e.args}')
             return e.args
 
     # get JSON file with PHOTOS data
 
     @staticmethod
-    def get_photo_by_id(user_id: int, photo_id: list | set):
-        id_list = ''
-        for item in photo_id:
-            id_list += ',' + str(users_db['user'].get(user_id).get('vk_user_id')) + '_' + str(item)
+    async def get_photo_by_id(user_id: int, photo_id: list | set):
+        try:
+            ids_str = str()
+            for item in photo_id:
+                ids_str += ',' + str(users_db['user'].get(user_id).get('vk_user_id')) + '_' + str(item)
 
-        api = requests.get("https://api.vk.com/method/photos.getById", params={
-            'access_token': users_db['user'].get(user_id).get('vk_token'),
-            'photos': id_list,
-            'v': 5.131
-        })
-        return api.json()
+            api = requests.get("https://api.vk.com/method/photos.getById", params={
+                'access_token': users_db['user'].get(user_id).get('vk_token'),
+                'photos': ids_str,
+                'v': 5.131
+            })
+            return api.json()
+        except ConnectionError as e:
+            print(f'get_scopes(user_id): {e.args}')
+
+    @staticmethod
+    async def get_thumb(user_id: int, photo_id: int):
+        try:
+            api = requests.get("https://api.vk.com/method/photos.getById", params={
+                'access_token': users_db['user'].get(user_id).get('vk_token'),
+                'photos': str(users_db['user'].get(user_id).get('vk_user_id')) + '_' + str(photo_id),
+                'v': 5.131
+            }).json()
+            return api['response'][0]['sizes'][2]['url']
+        except ConnectionError as e:
+            print(f'get_scopes(user_id): {e.args}')
 
     @staticmethod
     def get_albums(user_id):
@@ -168,6 +189,7 @@ class DownloadVk:
     # get all PHOTOS by albums_id and photo_id
 
     def albums_with_photos(self, user_id):
+        start = time.perf_counter()
         try:
             # get album id and photo id - getAll
             data = self.get_all_photos(user_id)
@@ -180,6 +202,9 @@ class DownloadVk:
                 for item in data["response"]["items"]:
                     album_id_photo_id[item["id"]] = item["album_id"]
                 i += 200
+
+            end = time.perf_counter()
+            print(f'the function albums_with_photos() was executed for {end - start:0.4f} seconds')
             return album_id_photo_id.items()
 
         except Exception as e:
@@ -196,7 +221,7 @@ class DownloadVk:
         except Exception as e:
             return e.args
 
-    def display_album_thumb(self, user_id):
+    async def display_album_thumb(self, user_id):
         try:
             json_data = self.get_albums(user_id)
             albums_id_title_size_thumb = []
@@ -230,7 +255,7 @@ class DownloadVk:
         except Exception as e:
             return e.args
 
-    async def save_photo_id_album_id(self, user_id):
+    async def save_album_into_db(self, user_id):
         start = time.perf_counter()
         users_db[f"{user_id}_albums"].create(
             {
@@ -266,7 +291,7 @@ class DownloadVk:
                 "album_title": str,
                 "docs_url": str,
                 "docs_ext": str
-            }, pk="id", if_not_exists=True)
+            }, pk="id")
 
         users_db['user'].upsert(
             {
@@ -282,32 +307,26 @@ class DownloadVk:
 
             try:
                 photo_id_album_id_dict = self.albums_with_photos(user_id)
-                photoIdOfSelectedAlbum = set()
+                photoIdOfSelectedAlbum = []
                 # set of photo IDs(ownerAndPhotoId_list) from the selected_album_id
                 for key, value in photo_id_album_id_dict:
                     if value == selected_album_id:
-                        photoIdOfSelectedAlbum.add(key)
+                        photoIdOfSelectedAlbum.append(key)
 
                 if len(photoIdOfSelectedAlbum) > 20:
-                    # get album id and photo id - getAll
-                    limit = 20
-                    length_to_split = []
-                    count_in_subliist = len(photoIdOfSelectedAlbum) // limit
-                    remainder = len(photoIdOfSelectedAlbum) - (count_in_subliist * limit)
 
-                    for _ in range(count_in_subliist):
-                        length_to_split.append(limit)
-                    if remainder > 0:
-                        length_to_split.append(remainder)
-                    print(length_to_split)
+                    # Split a list into Chunks using For Loops
+                    chunked_list = list()
+                    chunk_size = 20
+                    for i in range(0, len(photoIdOfSelectedAlbum), chunk_size):
+                        chunked_list.append(photoIdOfSelectedAlbum[i:i + chunk_size])
 
-                    # split photo_id list to sublists of size length_to_split
-                    output = [list(islice(photoIdOfSelectedAlbum, elem)) for elem in length_to_split]
-                    print(output)
+                    print(chunk_size)
+                    print(chunked_list)
 
-                    for index in tqdm(range(len(output)), token=os.environ.get("BOT_TOKEN"), chat_id=user_id):
-                        time.sleep(0.3)
-                        data = self.get_photo_by_id(user_id, output[index])
+                    for index in tqdm(range(len(chunked_list)), token=os.environ.get("BOT_TOKEN"), chat_id=user_id):
+                        time.sleep(0.2)
+                        data = await self.get_photo_by_id(user_id, chunked_list[index])
                         for item in data['response']:
                             # loaded photos URL
                             users_db[f"{user_id}"].insert_all(
@@ -323,7 +342,7 @@ class DownloadVk:
 
                             print(item["sizes"][-1]["url"])
                 else:
-                    data = self.get_photo_by_id(user_id, photoIdOfSelectedAlbum)
+                    data = await self.get_photo_by_id(user_id, photoIdOfSelectedAlbum)
                     for item in tqdm(data['response'], token=os.environ.get("BOT_TOKEN"),
                                      chat_id=user_id):
                         users_db[f"{user_id}"].insert_all(

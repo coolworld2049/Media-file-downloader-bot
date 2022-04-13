@@ -1,9 +1,9 @@
 from aiogram.utils import executor
 
 from core import dp
-from handlers.user.start_handler import register_handlers_main
-from handlers.user.vk_handlers import register_handlers_vk
-from handlers.user.yt_handlers import register_handlers_yt
+from handlers.start_handler import register_handlers_main
+from handlers.vk_handlers import register_handlers_vk
+from handlers.yt_handlers import register_handlers_yt
 
 if __name__ == "__main__":
     register_handlers_main(dp)
