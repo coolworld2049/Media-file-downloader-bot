@@ -47,12 +47,17 @@ async def send_start(message: types.Message):
             }
         ], pk="user_id", ignore=True)
 
-    users_db[f"{message.from_user.id}"].create(
+    users_db[f"{message.from_user.id}_photos"].create(
         {
             "id": int,
             "photo_url": str,
             "photo_ext": str,
             "album_title": str,
+        }, pk="id", if_not_exists=True)
+
+    users_db[f"{message.from_user.id}_docs"].create(
+        {
+            "id": int,
             "docs_url": str,
             "docs_ext": str
         }, pk="id", if_not_exists=True)
