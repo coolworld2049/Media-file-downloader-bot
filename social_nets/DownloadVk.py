@@ -1,5 +1,4 @@
 import asyncio
-import json
 import os
 import time
 
@@ -161,17 +160,27 @@ class DownloadVk:
             print(f'get_thumb(): {e.args}')
 
     @staticmethod
-    def get_albums(user_id):
-        api = requests.get("https://api.vk.com/method/photos.getAlbums", params={
+    async def get_albums(user_id):
+        """api = requests.get("https://api.vk.com/method/photos.getAlbums", params={
             'access_token': users_db['user'].get(user_id).get('vk_token'),
             'user_id': users_db['user'].get(user_id).get('vk_user_id'),
             'v': 5.131
         })
-        return api.json()
+        return api.json()"""
+
+        async with aiohttp.ClientSession() as session:
+            async with session.get("https://api.vk.com/method/photos.getAlbums",
+                                   params={
+                                       'access_token': users_db['user'].get(user_id).get('vk_token'),
+                                       'user_id': users_db['user'].get(user_id).get('vk_user_id'),
+                                       'v': 5.131
+                                   }) as resp:
+                print(f'get_albums(): response_status: {resp.status}')
+                return await resp.json()
 
     @staticmethod
-    def get_all_photos(user_id, offset=0, count=0):
-        api = requests.get("https://api.vk.com/method/photos.getAll", params={
+    async def get_all_photos(user_id, offset=0, count=0):
+        """api = requests.get("https://api.vk.com/method/photos.getAll", params={
             'owner_id': users_db['user'].get(user_id).get('vk_user_id'),
             'access_token': users_db['user'].get(user_id).get('vk_token'),
             'offset': offset,
@@ -179,33 +188,56 @@ class DownloadVk:
             'photo_sizes': 1,
             'v': 5.131
         })
-        return json.loads(api.text)
+        return json.loads(api.text)"""
+
+        async with aiohttp.ClientSession() as session:
+            async with session.get("https://api.vk.com/method/photos.getAll",
+                                   params={
+                                       'owner_id': users_db['user'].get(user_id).get('vk_user_id'),
+                                       'access_token': users_db['user'].get(user_id).get('vk_token'),
+                                       'offset': offset,
+                                       'count': count,
+                                       'photo_sizes': 1,
+                                       'v': 5.131
+                                   }) as resp:
+                print(f'get_all_photos(): response_status: {resp.status}')
+                return await resp.json()
 
     # get json file with DOCS data
 
     @staticmethod
-    def get_docs(user_id, count=0):
+    async def get_docs(user_id, count=0):
         """MAX count = 200"""
-        api = requests.get("https://api.vk.com/method/docs.get", params={
+        """api = requests.get("https://api.vk.com/method/docs.get", params={
             'access_token': users_db['user'].get(user_id).get('vk_token'),
             'count': count,
             'v': 5.131
         })
-        return json.loads(api.text)
+        return json.loads(api.text)"""
+
+        async with aiohttp.ClientSession() as session:
+            async with session.get("https://api.vk.com/method/docs.get",
+                                   params={
+                                       'access_token': users_db['user'].get(user_id).get('vk_token'),
+                                       'count': count,
+                                       'v': 5.131
+                                   }) as resp:
+                print(f'get_docs(): response_status: {resp.status}')
+                return await resp.json()
 
     # get all PHOTOS by albums_id and photo_id
 
-    def photos_with_albums(self, user_id):
+    async def photos_with_albums(self, user_id):
         start = time.perf_counter()
         try:
             # get album id and photo id - getAll
-            data = self.get_all_photos(user_id)
+            data = await self.get_all_photos(user_id)
             album_id_photo_id = {}
             count = 200
             i = 0
             # tqdm(, token = os.environ.get("BOT_TOKEN"), chat_id = user_id):
             while i <= data["response"]["count"]:
-                data = self.get_all_photos(user_id, offset=i, count=count)
+                data = await self.get_all_photos(user_id, offset=i, count=count)
                 for item in data["response"]["items"]:
                     album_id_photo_id[item["id"]] = item["album_id"]
                 i += 200
@@ -219,7 +251,7 @@ class DownloadVk:
 
     async def display_album(self, user_id):
         try:
-            json_data = self.get_albums(user_id)
+            json_data = await self.get_albums(user_id)
             albums_id_title_size_thumb = []
             for albums in json_data["response"]["items"]:
                 if albums['size'] > 0:
@@ -234,9 +266,9 @@ class DownloadVk:
         except Exception as e:
             return e.args
 
-    def display_albums_id(self, user_id):
+    async def display_albums_id(self, user_id):
         try:
-            json_data = self.get_albums(user_id)
+            json_data = await self.get_albums(user_id)
             albums_id = []
             for albums in json_data["response"]["items"]:
                 albums_id.append(albums["id"])
@@ -245,9 +277,9 @@ class DownloadVk:
         except Exception as e:
             return e.args
 
-    def display_album_id_title(self, user_id):
+    async def display_album_id_title(self, user_id):
         try:
-            json_data = self.get_albums(user_id)
+            json_data = await self.get_albums(user_id)
             albums_id_title = []
             for albums in json_data["response"]["items"]:
                 albums_id_title.append([albums["id"],
@@ -257,9 +289,9 @@ class DownloadVk:
         except Exception as e:
             return e.args
 
-    def display_albums_title(self, user_id, album_id: int):
+    async def display_albums_title(self, user_id, album_id: int):
         try:
-            albums_id_and_title = self.display_album_id_title(user_id)
+            albums_id_and_title = await self.display_album_id_title(user_id)
             for i in range(len(albums_id_and_title)):
                 if albums_id_and_title[i][0] == album_id:
                     return str(albums_id_and_title[i][1])
@@ -311,10 +343,10 @@ class DownloadVk:
 
         if users_db['user'].get(user_id).get('vk_user_authorized'):
             count = 0
-            album_title = self.display_albums_title(user_id, selected_album_id)
+            album_title = await self.display_albums_title(user_id, selected_album_id)
 
             try:
-                photo_id_album_id_dict = self.photos_with_albums(user_id)
+                photo_id_album_id_dict = await self.photos_with_albums(user_id)
                 photoIdOfSelectedAlbum = []
                 # set of photo IDs(ownerAndPhotoId_list) from the selected_album_id
                 for key, value in photo_id_album_id_dict:
@@ -403,7 +435,7 @@ class DownloadVk:
         if users_db['user'].get(user_id).get('vk_user_authorized'):
             count = 0
             try:
-                photo_id_album_id_dict = self.photos_with_albums(user_id)
+                photo_id_album_id_dict = await self.photos_with_albums(user_id)
 
                 if len(photo_id_album_id_dict) > 20:
 
@@ -465,13 +497,13 @@ class DownloadVk:
 
     # downloading DOCS
 
-    def save_docs(self, user_id):
+    async def save_docs(self, user_id):
         if users_db['user'].get(user_id).get('vk_user_authorized'):
             try:
                 docs = self.get_docs(user_id)
                 for doc in tqdm(docs['response']['items'], token=os.environ.get("BOT_TOKEN"), chat_id=user_id):
                     try:
-                        time.sleep(0.1)
+                        await asyncio.sleep(0.07)
                         users_db[f"{user_id}_docs"].upsert(
                             {
                                 "docs_url": doc["sizes"][-1]["url"],
@@ -479,12 +511,11 @@ class DownloadVk:
                             })
                         print(doc['url'], sep='\n')
                     except requests.exceptions:
-                        time.sleep(0.1)
+                        await asyncio.sleep(0.1)
                         continue
 
             except Exception as e:
                 return e.args
-
             finally:
                 users_db[f"{user_id}"].upsert(
                     {

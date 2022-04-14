@@ -233,7 +233,7 @@ async def callback_save_album(callback_query: types.CallbackQuery, state: FSMCon
                 if users_db['user'].get(user_id).get('vk_photo_download_completed'):
                     await bot.send_message(callback_query.from_user.id,
                                            text=f'Загрузка альбома в облачное хранилище')
-                    curr_album_title = DownloadVk().display_albums_title(user_id, callback_selected_album_id)
+                    curr_album_title = await DownloadVk().display_albums_title(user_id, callback_selected_album_id)
                     photo_url_ext_list = []
                     for pk_id in range(users_db[f'{user_id}_photos'].count):
                         photo_url_ext_list.append(
@@ -278,21 +278,26 @@ async def callback_save_album(callback_query: types.CallbackQuery, state: FSMCon
         await MyStates.auth_vk.set()
 
 
-"""@dp.callback_query_handler(lambda c: c.data == 'docs')
+@dp.callback_query_handler(lambda c: c.data == 'docs')
 async def callback_save_docs(callback_query: types.CallbackQuery):
-    DownloadVk().bot_chat_id = callback_query.from_user.id
-    YandexDisk().bot_chat_id = callback_query.from_user.id
-
+    user_id = callback_query.from_user.id
     await bot.send_message(callback_query.from_user.id, text=f'Загрузка документов из VK')
-    DownloadVk().save_docs(callback_query.from_user.id)
+    await DownloadVk().save_docs(callback_query.from_user.id)
 
-    if DownloadVk().vk_docs_download_completed:
+    if users_db['user'].get(user_id).get('vk_docs_download_completed'):
         await bot.send_message(callback_query.from_user.id,
                                text=f'Загрузка документов в облачное хранилище')
-        YandexDisk().upload_file(url_list=DownloadVk().docs_url_ext, folder_name=DownloadVk().docs_folder_name,
-                               overwrite=False)
-        if YandexDisk().upload_completed:
-            url_for_download = YandexDisk().get_link_file(DownloadVk().docs_folder_name)
+        docs_url_ext_list = []
+        for pk_id in range(users_db[f'{user_id}_photos'].count):
+            docs_url_ext_list.append(
+                [
+                    users_db[f'{user_id}_docs'].get(pk_id).get('docs_url'),
+                    users_db[f'{user_id}_docs'].get(pk_id).get('docs_ext')
+                ])
+
+        await YandexDisk().upload_file(user_id, url_list=docs_url_ext_list, folder_name='docs')
+        if users_db['user'].get(user_id).get('ya_upload_completed'):
+            url_for_download = await YandexDisk().get_link_file(user_id, 'docs')
             await bot.send_message(callback_query.from_user.id,
                                    text=f'Ссылка для загрузки файлов:\n'
                                         f'{url_for_download}')
@@ -302,4 +307,4 @@ async def callback_save_docs(callback_query: types.CallbackQuery):
     else:
         await bot.send_message(callback_query.from_user.id, text='Перейти к выбору области загрузки',
                                reply_markup=goto_select_vk_scope())
-        await MyStates.select_vk_scope.set()"""
+        await MyStates.select_vk_scope.set()
