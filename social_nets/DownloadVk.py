@@ -274,7 +274,7 @@ class DownloadVk:
         except Exception as e:
             return e.args
 
-    """async def save_album_into_db(self, user_id):
+    async def save_album_into_db(self, user_id):
         start = time.perf_counter()
         users_db[f"{user_id}_albums"].create(
             {
@@ -294,7 +294,7 @@ class DownloadVk:
                     }
                 ], pk="photo_id", replace=True)
         end = time.perf_counter()
-        print(f'the function sorting_photos_into_albums() was executed for {end - start:0.4f} seconds')"""
+        print(f'the function sorting_photos_into_albums() was executed for {end - start:0.4f} seconds')
 
     # downloading PHOTOS by album
 

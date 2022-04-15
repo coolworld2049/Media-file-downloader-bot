@@ -2,14 +2,10 @@ from pytube import YouTube
 
 
 class DownloadYt:
-    def __init__(self):
-        self.callback_url = ''
 
-    def download_file(self):
-        yt = YouTube(self.callback_url)
-        title = yt.title
-        thumbnail = yt.thumbnail_url
-        video = yt.streams.filter(progressive=True,
-                                  file_extension='mp4',
-                                  resolution='1080p').first().download()
-        return yt
+    @staticmethod
+    def download_file(youtube_video_url):
+        yt_obj = YouTube(youtube_video_url)
+        yt_obj = yt_obj.streams.first()
+        yt_obj.download(output_path='temp/', filename='video.mp4')
+        return yt_obj

@@ -10,16 +10,16 @@ from db.database import users_db
 
 class YandexDisk:
     def __init__(self):
-        self.app_id = '131f4986553d493184f6a5e5af832174'
+        self.APP_ID = '131f4986553d493184f6a5e5af832174'
         self.URL = 'https://cloud-api.yandex.net/v1/disk/resources'
-        self.main_folder = 'Saved from tg'
+        self.ROOT_FOLDER = 'Saved from tg'
 
     # authorization
 
     def send_link(self):
 
         link = f'https://oauth.yandex.ru/authorize?response_type=token' \
-               f'&client_id={self.app_id}'
+               f'&client_id={self.APP_ID}'
         return link
 
     @staticmethod
@@ -43,11 +43,11 @@ class YandexDisk:
     # actions with user disk
 
     async def get_folders(self, user_id):
-        """'path': f'{self.main_folder}/'"""
+        """'path': f'{self.ROOT_FOLDER}/'"""
         async with aiohttp.ClientSession() as session:
             async with session.get(self.URL,
                                    params={
-                                       'path': f'{self.main_folder}/'
+                                       'path': f'{self.ROOT_FOLDER}/'
                                    },
                                    headers={
                                        'Content-Type': 'application/json',
@@ -129,9 +129,9 @@ class YandexDisk:
                 "number_uploaded_file": 0
             }, pk="user_id")
         start_dir = time.perf_counter()
-        subfolder_path = f'{self.main_folder}/{folder_name}'
+        subfolder_path = f'{self.ROOT_FOLDER}/{folder_name}'
         is_subfolder = False
-        if await self.create_folder(user_id, self.main_folder):
+        if await self.create_folder(user_id, self.ROOT_FOLDER):
             if await self.create_folder(user_id, subfolder_path):
                 is_subfolder = True
         end_dir = time.perf_counter()
@@ -194,7 +194,7 @@ class YandexDisk:
                 async with aiohttp.ClientSession() as session:
                     async with session.put(f"{self.URL}/publish",
                                            params={
-                                               'path': f"{self.main_folder}/{folder_name}"
+                                               'path': f"{self.ROOT_FOLDER}/{folder_name}"
                                            },
                                            data=None,
                                            headers={
@@ -202,18 +202,18 @@ class YandexDisk:
                                                'Accept': 'application/json',
                                                'Authorization': f'OAuth {users_db["user"].get(user_id).get("y_api_token")}'
                                            }) as put_resp:
-                        print(f'Publish folder: {self.main_folder}/{folder_name}. Response: {put_resp.status}')
+                        print(f'Publish folder: {self.ROOT_FOLDER}/{folder_name}. Response: {put_resp.status}')
 
                     async with session.get(f"{self.URL}/download",
                                            params={
-                                               'path': f"{self.main_folder}/{folder_name}"
+                                               'path': f"{self.ROOT_FOLDER}/{folder_name}"
                                            },
                                            headers={
                                                'Content-Type': 'application/json',
                                                'Accept': 'application/json',
                                                'Authorization': f'OAuth {users_db["user"].get(user_id).get("y_api_token")}'
                                            }) as get_resp:
-                        print(f'Download folder: {self.main_folder}/{folder_name}. Response: {get_resp.status}')
+                        print(f'Download folder: {self.ROOT_FOLDER}/{folder_name}. Response: {get_resp.status}')
                         return await get_resp.json()
 
             except KeyError as ke:

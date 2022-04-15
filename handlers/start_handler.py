@@ -14,6 +14,8 @@ def register_handlers_main(dispatcher: Dispatcher):
 
 @dp.message_handler(commands=['start'])
 async def send_start(message: types.Message):
+    # await DownloadYt().download_file()
+
     await bot.send_message(message.from_user.id, text='Привет! Для загрузки фото и документов из вк'
                                                       ' необходимо авторизоваться в вк и выбрать место,'
                                                       ' куда будут загружены ваши фотографии',

@@ -208,7 +208,7 @@ async def callback_save_album(callback_query: types.CallbackQuery, state: FSMCon
                 if users_db['user'].get(callback_query.from_user.id).get('ya_upload_completed'):
                     await bot.send_message(callback_query.from_user.id,
                                            text=f'Альбом загружен в облачное хранилище:\n'
-                                                f'Path "{YandexDisk().main_folder}/{curr_album_title}"\n'
+                                                f'Path "{YandexDisk().ROOT_FOLDER}/{curr_album_title}"\n'
                                                 f'Size {users_db["user"].get(user_id).get("number_uploaded_file")}')
                     url_for_download: dict = await YandexDisk().get_link_to_file(user_id, curr_album_title)
                     await bot.send_message(callback_query.from_user.id,
@@ -269,7 +269,7 @@ async def callback_save_all_photo(callback_query: types.CallbackQuery):
             if users_db['user'].get(callback_query.from_user.id).get('ya_upload_completed'):
                 await bot.send_message(callback_query.from_user.id,
                                        text=f'Фото загружены в облачное хранилище:\n'
-                                            f'Path "{YandexDisk().main_folder}/All photos"\n'
+                                            f'Path "{YandexDisk().ROOT_FOLDER}/All photos"\n'
                                             f'Size {users_db["user"].get(user_id).get("number_uploaded_file")}')
                 url_for_download = await YandexDisk().get_link_to_file(user_id, 'All photos')
                 await bot.send_message(callback_query.from_user.id,
