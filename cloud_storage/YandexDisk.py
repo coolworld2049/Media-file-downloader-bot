@@ -54,7 +54,7 @@ class YandexDisk:
                                        'Accept': 'application/json',
                                        f'Authorization': f'OAuth {users_db["user"].get(user_id).get("y_api_token")}'
                                    }) as resp:
-                print(f'get_folders(): response_status: {resp.status}')
+                print(f'get_folders(user_id: {user_id}): response_status: {resp.status}')
                 return await resp.json()
 
     async def create_folder(self, user_id, folder_name):
@@ -75,7 +75,7 @@ class YandexDisk:
                                        }) as resp:
                     status = resp.status
                     count += 1
-                    print(f'Try create dir "{folder_name}" in cloud storage.'
+                    print(f'user_id: {user_id}. Try create dir "{folder_name}" in cloud storage.'
                           f' Response code: {str(resp.status)}. Message: {await resp.json()}')
             if status == 201:
                 return True
@@ -104,7 +104,7 @@ class YandexDisk:
                                           }) as resp:
                     status = resp.status
                     count += 1
-                    print(f'Try delete dir "{folder_name}" in cloud storage.'
+                    print(f'user_id: {user_id}. Try delete dir "{folder_name}" in cloud storage.'
                           f' Response code: {str(resp.status)}. Message: {await resp.json()}')
             if status == 200 or 202 or 204:
                 return True
@@ -135,7 +135,7 @@ class YandexDisk:
             if await self.create_folder(user_id, subfolder_path):
                 is_subfolder = True
         end_dir = time.perf_counter()
-        print(f'Directory creation was done in {end_dir - start_dir:0.4f} seconds')
+        print(f'user_id: {user_id}. Directory creation was done in {end_dir - start_dir:0.4f} seconds')
 
         if is_subfolder:
             counter = 0
@@ -185,39 +185,55 @@ class YandexDisk:
                     }, pk='user_id')
 
         end = time.perf_counter()
-        print(f'\nthe function upload_file() was completed in {end - start:0.4f} seconds')
+        print(f'\nthe function upload_file(user_id: {user_id}) was completed in {end - start:0.4f} seconds')
         print(f'uploaded {users_db["user"].get(user_id).get("number_uploaded_file")}')
+
+    async def get_published_file(self, user_id, folder_name):
+        async with aiohttp.ClientSession() as session:
+            async with session.get(f"{self.URL}/public",
+                                   params={
+                                       'path': f"{self.ROOT_FOLDER}/{folder_name}",
+                                       'type': 'dir',
+                                       'preview_crop': 'true'
+                                   },
+                                   headers={
+                                       'Content-Type': 'application/json',
+                                       'Accept': 'application/json',
+                                       'Authorization': f'OAuth {users_db["user"].get(user_id).get("y_api_token")}'
+                                   }) as resp:
+                print(f'user_id: {user_id}. Get published folder: {self.ROOT_FOLDER}/{folder_name}. Response: {resp.status}')
+                if resp.status == 200:
+                    return await resp.json()
+                else:
+                    error = await resp.json()
+                    return error['descriptions']
 
     async def get_link_to_file(self, user_id, folder_name: str):
         if users_db["user"].get(user_id).get("ya_upload_completed"):
             try:
-                async with aiohttp.ClientSession() as session:
-                    async with session.put(f"{self.URL}/publish",
-                                           params={
-                                               'path': f"{self.ROOT_FOLDER}/{folder_name}"
-                                           },
-                                           data=None,
-                                           headers={
-                                               'Content-Type': 'application/json',
-                                               'Accept': 'application/json',
-                                               'Authorization': f'OAuth {users_db["user"].get(user_id).get("y_api_token")}'
-                                           }) as put_resp:
-                        print(f'Publish folder: {self.ROOT_FOLDER}/{folder_name}. Response: {put_resp.status}')
-
-                    async with session.get(f"{self.URL}/download",
-                                           params={
-                                               'path': f"{self.ROOT_FOLDER}/{folder_name}"
-                                           },
-                                           headers={
-                                               'Content-Type': 'application/json',
-                                               'Accept': 'application/json',
-                                               'Authorization': f'OAuth {users_db["user"].get(user_id).get("y_api_token")}'
-                                           }) as get_resp:
-                        print(f'Download folder: {self.ROOT_FOLDER}/{folder_name}. Response: {get_resp.status}')
-                        return await get_resp.json()
+                async with aiohttp.ClientSession() as session0:
+                    async with session0.put(f"{self.URL}/publish",
+                                            params={
+                                                'path': f"{self.ROOT_FOLDER}/{folder_name}"
+                                            },
+                                            data=None,
+                                            headers={
+                                                'Content-Type': 'application/json',
+                                                'Accept': 'application/json',
+                                                'Authorization': f'OAuth {users_db["user"].get(user_id).get("y_api_token")}'
+                                            }) as put_resp:
+                        print(f'user_id: {user_id}. Publish folder: {self.ROOT_FOLDER}/{folder_name}. Response: {put_resp.status}')
 
             except KeyError as ke:
-                print('get_link_file() KeyError' + str(ke.args))
+                print(f'get_link_file(user_id: {user_id}) KeyError' + str(ke.args))
                 return f'get_link_file() KeyError {ke.args}'
+            finally:
+                published = await self.get_published_file(user_id, folder_name)
+                if published:
+                    for item in published['items']:
+                        if item['name'] == folder_name:
+                            return item['public_url']
+                else:
+                    return 'При получении ссылки на опубликованный ресурс произошла ошибка'
         else:
-            return 'get_link_file(): ya_upload_completed: 0'
+            return f'get_link_file(user_id: {user_id}): ya_upload_completed: 0'

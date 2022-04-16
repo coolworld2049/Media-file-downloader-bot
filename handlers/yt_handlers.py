@@ -24,6 +24,6 @@ async def message_download_yt(message: types.Message, state: FSMContext):
         await state.finish()
 
     print(f'downloading {user_url}')
-    DownloadYt().download_file(user_url)
+    await DownloadYt().download_file(user_url)
     with open('C:/Users/R/PycharmProjects/Social-media-file-downloader/temp/video.mp4', 'rb') as video:
         await bot.send_video(message.from_user.id, video)

@@ -137,10 +137,10 @@ class DownloadVk:
                                            'access_token': users_db['user'].get(user_id).get('vk_token'),
                                            'photos': ids_str,
                                            'v': 5.131}) as resp:
-                    print(f'get_photo_by_id(): response_status: {resp.status}')
+                    print(f'get_photo_by_id(user_id: {user_id}): response_status: {resp.status}')
                     return await resp.json()
         except Exception as e:
-            print(f'get_photo_by_id_list(): {e.args}')
+            print(f'get_photo_by_id_list(user_id: {user_id}): {e.args}')
 
     @staticmethod
     async def get_photo_by_id(user_id: int, photo_id: int):
@@ -152,11 +152,11 @@ class DownloadVk:
                                            'photos': f"{users_db['user'].get(user_id).get('vk_user_id')}_{photo_id}",
                                            'v': 5.131
                                        }) as resp:
-                    print(f'get_photo_by_id(): response_status: {resp.status}')
+                    print(f'get_photo_by_id(user_id: {user_id}): response_status: {resp.status}')
                     return await resp.json()
 
         except Exception as e:
-            print(f'get_thumb(): {e.args}')
+            print(f'get_thumb(user_id: {user_id}): {e.args}')
 
     @staticmethod
     async def get_albums(user_id):
@@ -167,7 +167,7 @@ class DownloadVk:
                                        'user_id': users_db['user'].get(user_id).get('vk_user_id'),
                                        'v': 5.131
                                    }) as resp:
-                print(f'get_albums(): response_status: {resp.status}')
+                print(f'get_albums(user_id: {user_id}): response_status: {resp.status}')
                 return await resp.json()
 
     @staticmethod
@@ -183,7 +183,7 @@ class DownloadVk:
                                        'photo_sizes': 1,
                                        'v': 5.131
                                    }) as resp:
-                print(f'get_all_photos(): offset: {offset}, count: {count}, response_status: {resp.status}')
+                print(f'get_all_photos(user_id: {user_id}): offset: {offset}, count: {count}, response_status: {resp.status}')
                 return await resp.json()
 
     # get json file with DOCS data
@@ -198,7 +198,7 @@ class DownloadVk:
                                        'count': count,
                                        'v': 5.131
                                    }) as resp:
-                print(f'get_docs(): response_status: {resp.status}')
+                print(f'get_docs(user_id: {user_id}): response_status: {resp.status}')
                 return await resp.json()
 
     # get all PHOTOS by albums_id and photo_id
@@ -219,7 +219,7 @@ class DownloadVk:
                 i += 200
 
             end = time.perf_counter()
-            print(f'the function albums_with_photos() was executed for {end - start:0.4f} seconds')
+            print(f'the function albums_with_photos(user_id: {user_id}) was executed for {end - start:0.4f} seconds')
             return album_id_photo_id.items()
 
         except Exception as e:
@@ -294,7 +294,7 @@ class DownloadVk:
                     }
                 ], pk="photo_id", replace=True)
         end = time.perf_counter()
-        print(f'the function sorting_photos_into_albums() was executed for {end - start:0.4f} seconds')
+        print(f'the function sorting_photos_into_albums(user_id: {user_id}) was executed for {end - start:0.4f} seconds')
 
     # downloading PHOTOS by album
 
@@ -381,7 +381,7 @@ class DownloadVk:
                         print(item["sizes"][-1]["url"])
 
             except KeyError as ke:
-                print(f'save_album_by_id(). KeyError {ke.args}')
+                print(f'save_album_by_id(user_id: {user_id}). KeyError {ke.args}')
 
             finally:
                 if users_db[f"{user_id}_photos"].count > 0:
@@ -393,7 +393,7 @@ class DownloadVk:
 
                         }, pk="user_id")
                 end = time.perf_counter()
-                print(f'the function save_photo_by_id() was completed in {end - start:0.4f} seconds')
+                print(f'the function save_photo_by_id(user_id: {user_id}) was completed in {end - start:0.4f} seconds')
                 print(f'downloaded {users_db["user"].get(user_id).get("number_downloaded_file")}')
 
     # downloading DOCS
@@ -433,7 +433,7 @@ class DownloadVk:
                     print(doc['url'], sep='\n')
 
             except Exception as e:
-                print(f'save_docs(). Exception {e.args}')
+                print(f'save_docs(user_id: {user_id}). Exception {e.args}')
                 return e.args
             finally:
                 users_db['user'].upsert(

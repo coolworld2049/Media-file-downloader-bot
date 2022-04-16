@@ -81,4 +81,5 @@ async def send_start(message: types.Message):
 @dp.message_handler(commands=['help'])
 async def send_help(message: types.Message):
     await message.answer('/start - выбрать соц. сеть\n'
+                         '                            '
                          '/help - список команд')
