@@ -11,3 +11,4 @@ if __name__ == "__main__":
     register_handlers_yt(dp)
 
     executor.start_polling(dp, skip_updates=True)
+

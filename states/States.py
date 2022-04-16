@@ -6,7 +6,7 @@ class States(StatesGroup):  # TODO разделить на 3 класса
     auth_ya_disk = State()
     # vk
     select_vk_scope = State()
-    select_storage_place = State()
+    select_storage = State()
     save_all_photo = State()
     save_album = State()
     # yt

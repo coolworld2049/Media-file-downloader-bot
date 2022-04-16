@@ -1,9 +1,10 @@
 import emoji
 from aiogram import types, Dispatcher
-from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardRemove
 
 from core import dp, bot
 from db.database import users_db
+from social_nets.DownloadVk import DownloadVk
 
 
 def register_handlers_main(dispatcher: Dispatcher):
@@ -13,6 +14,12 @@ def register_handlers_main(dispatcher: Dispatcher):
 
 @dp.message_handler(commands=['start'])
 async def send_start(message: types.Message):
+    # await DownloadYt().download_file()
+
+    await bot.send_message(message.from_user.id, text='Привет! Для загрузки фото и документов из вк'
+                                                      ' необходимо авторизоваться в вк и выбрать место,'
+                                                      ' куда будут загружены ваши фотографии',
+                           reply_markup=ReplyKeyboardRemove())
     # display source list
     IK_select_source = InlineKeyboardMarkup(row_width=2)
     IK_select_source.add(InlineKeyboardButton(text=emoji.emojize(':dizzy: Get from Vk'),
@@ -21,7 +28,7 @@ async def send_start(message: types.Message):
                                                                  'Get from YouTube'),
                                               callback_data='button_video_yt'))
 
-    await bot.send_message(message.from_user.id, text='Выберите соц.сеть',
+    await bot.send_message(message.from_user.id, text='Выбери соц.сеть',
                            reply_markup=IK_select_source)
 
     users_db["user"].insert_all(
@@ -59,11 +66,20 @@ async def send_start(message: types.Message):
         {
             "id": int,
             "docs_url": str,
-            "docs_ext": str
+            "docs_ext": str,
+            "title": str
         }, pk="id", if_not_exists=True)
+
+    if not await DownloadVk().check_token(message.from_user.id):
+        users_db["user"].upsert(
+                {
+                    "user_id": message.from_user.id,
+                    "vk_user_authorized": False
+                }, pk="user_id")
 
 
 @dp.message_handler(commands=['help'])
 async def send_help(message: types.Message):
     await message.answer('/start - выбрать соц. сеть\n'
+                         '                            '
                          '/help - список команд')
