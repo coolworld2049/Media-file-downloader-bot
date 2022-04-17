@@ -1,4 +1,3 @@
-import asyncio
 import os
 import time
 
@@ -121,69 +120,81 @@ class DownloadVk:
         except Exception as e:
             print(f'get_scopes(): {e.args}')
             return e.args
+        finally:
+            print(f'get_scopes(user_id: {user_id}): response_status: {resp.status}')
 
     # get JSON file with PHOTOS data
 
     @staticmethod
-    async def get_photo_by_id_list(user_id: int, photo_ids: list):
-        try:
-            ids_str = str()
-            owner_id = users_db['user'].get(user_id).get('vk_user_id')
-            for item in photo_ids:
-                ids_str += f",{owner_id}_{item}"
-            async with aiohttp.ClientSession() as session:
-                async with session.get("https://api.vk.com/method/photos.getById",
-                                       params={
-                                           'access_token': users_db['user'].get(user_id).get('vk_token'),
-                                           'photos': ids_str,
-                                           'v': 5.131}) as resp:
-                    print(f'get_photo_by_id(user_id: {user_id}): response_status: {resp.status}')
-                    return await resp.json()
-        except Exception as e:
-            print(f'get_photo_by_id_list(user_id: {user_id}): {e.args}')
-
-    @staticmethod
-    async def get_photo_by_id(user_id: int, photo_id: int):
-        try:
-            async with aiohttp.ClientSession() as session:
-                async with session.get("https://api.vk.com/method/photos.getById",
-                                       params={
-                                           'access_token': users_db['user'].get(user_id).get('vk_token'),
-                                           'photos': f"{users_db['user'].get(user_id).get('vk_user_id')}_{photo_id}",
-                                           'v': 5.131
-                                       }) as resp:
-                    print(f'get_photo_by_id(user_id: {user_id}): response_status: {resp.status}')
-                    return await resp.json()
-
-        except Exception as e:
-            print(f'get_thumb(user_id: {user_id}): {e.args}')
-
-    @staticmethod
-    async def get_albums(user_id):
+    async def get_all_photos(user_id, offset=0, count=0):
         async with aiohttp.ClientSession() as session:
-            async with session.get("https://api.vk.com/method/photos.getAlbums",
+            async with session.get("https://api.vk.com/method/photos.getAll",
                                    params={
                                        'access_token': users_db['user'].get(user_id).get('vk_token'),
-                                       'user_id': users_db['user'].get(user_id).get('vk_user_id'),
+                                       'owner_id': users_db['user'].get(user_id).get('vk_user_id'),
+                                       'offset': offset,
+                                       'count': count,
+                                       'photo_sizes': 1,
                                        'v': 5.131
-                                   }) as resp:
-                print(f'get_albums(user_id: {user_id}): response_status: {resp.status}')
+                                   }
+                                   ) as resp:
+                print(
+                    f'get_all_photos(user_id: {user_id}): offset: {offset}, count: {count}, response_status: {resp.status}')
                 return await resp.json()
 
     @staticmethod
-    async def get_all_photos(user_id, offset=0, count=0):
+    async def get_service_albums(user_id, offset=0, count=0, service_album_id: str = '-15'):
         async with aiohttp.ClientSession() as session:
-            await asyncio.sleep(0.02)
-            async with session.get("https://api.vk.com/method/photos.getAll",
+            async with session.get("https://api.vk.com/method/photos.get",
                                    params={
-                                       'owner_id': users_db['user'].get(user_id).get('vk_user_id'),
                                        'access_token': users_db['user'].get(user_id).get('vk_token'),
+                                       'owner_id': users_db['user'].get(user_id).get('vk_user_id'),
+                                       'album_id': service_album_id,
                                        'offset': offset,
                                        'count': count,
                                        'photo_sizes': 1,
                                        'v': 5.131
                                    }) as resp:
-                print(f'get_all_photos(user_id: {user_id}): offset: {offset}, count: {count}, response_status: {resp.status}')
+                print(f'get_photos(user_id: {user_id}): offset: {offset}, count: {count},'
+                      f' service_album_id: {service_album_id}), response_status: {resp.status}')
+                return await resp.json()
+
+    @staticmethod
+    async def get_photo_by_id(user_id: int, photo_id: int | list):
+        try:
+            photo = str()
+            owner_id = users_db['user'].get(user_id).get('vk_user_id')
+            if isinstance(photo_id, list):
+                for item in photo_id:
+                    photo += f",{owner_id}_{item}"
+            elif isinstance(photo_id, int):
+                photo = f"{owner_id}_{photo_id}"
+
+            async with aiohttp.ClientSession() as session:
+                async with session.get("https://api.vk.com/method/photos.getById",
+                                       params={
+                                           'access_token': users_db['user'].get(user_id).get('vk_token'),
+                                           'photos': photo,
+                                           'v': 5.131
+                                       }) as resp:
+                    return await resp.json()
+        except Exception as e:
+            print(f'get_photo_by_id(user_id: {user_id}): {e.args}')
+        finally:
+            print(f'get_photo_by_id(user_id: {user_id}): response_status: {resp.status}')
+
+    @staticmethod
+    async def get_albums(user_id):
+        # need_system: 1 for service album
+        async with aiohttp.ClientSession() as session:
+            async with session.get("https://api.vk.com/method/photos.getAlbums",
+                                   params={
+                                       'access_token': users_db['user'].get(user_id).get('vk_token'),
+                                       'user_id': users_db['user'].get(user_id).get('vk_user_id'),
+                                       'need_system': 1,
+                                       'v': 5.131
+                                   }) as resp:
+                print(f'get_albums(user_id: {user_id}): response_status: {resp.status}')
                 return await resp.json()
 
     # get json file with DOCS data
@@ -201,29 +212,48 @@ class DownloadVk:
                 print(f'get_docs(user_id: {user_id}): response_status: {resp.status}')
                 return await resp.json()
 
+    # get SAVED PHOTOS
+
+    async def service_albums(self, user_id, album_id: str):
+        start = time.perf_counter()
+        try:
+            data = await self.get_service_albums(user_id, offset=0, count=0, service_album_id=album_id)
+            photo_id_album_id = {}
+            count = 200
+            offset = 0
+            while offset <= data["response"]["count"]:
+                data = await self.get_service_albums(user_id, offset=offset, count=count, service_album_id=album_id)
+                for item in data["response"]["items"]:
+                    photo_id_album_id[item["id"]] = str(item["album_id"])
+                offset += 200
+            return photo_id_album_id.items()
+        except Exception as e:
+            return e.args
+        finally:
+            end = time.perf_counter()
+            print(f'the function service_albums(user_id: {user_id}, album_id: {album_id})'
+                  f' was executed in {end - start:0.4f} seconds')
+
     # get all PHOTOS by albums_id and photo_id
 
     async def photos_with_albums(self, user_id):
         start = time.perf_counter()
         try:
-            # get album id and photo id - getAll
             data = await self.get_all_photos(user_id)
-            album_id_photo_id = {}
+            photo_id_album_id = {}
             count = 200
-            i = 0
-            # tqdm(, token = os.environ.get("BOT_TOKEN"), chat_id = user_id):
-            while i <= data["response"]["count"]:
-                data = await self.get_all_photos(user_id, offset=i, count=count)
+            offset = 0
+            while offset <= data["response"]["count"]:
+                data = await self.get_all_photos(user_id, offset=offset, count=count)
                 for item in data["response"]["items"]:
-                    album_id_photo_id[item["id"]] = item["album_id"]
-                i += 200
-
-            end = time.perf_counter()
-            print(f'the function albums_with_photos(user_id: {user_id}) was executed for {end - start:0.4f} seconds')
-            return album_id_photo_id.items()
-
+                    photo_id_album_id[item["id"]] = item["album_id"]
+                offset += 200
+            return photo_id_album_id.items()
         except Exception as e:
             return e.args
+        finally:
+            end = time.perf_counter()
+            print(f'the function photos_with_albums(user_id: {user_id}) was executed in {end - start:0.4f} seconds')
 
     async def display_album(self, user_id):
         try:
@@ -232,15 +262,16 @@ class DownloadVk:
             for albums in json_data["response"]["items"]:
                 if albums['size'] > 0:
                     thumb_url = await DownloadVk.get_photo_by_id(user_id, albums["thumb_id"])
-                    albums_id_title_size_thumb.append([[albums["id"],
-                                                        albums["title"],
-                                                        albums["size"],
-                                                        thumb_url['response'][0]['sizes'][2]['url']
-                                                        ]])
+                    albums_id_title_size_thumb.append([albums["id"],
+                                                       albums["title"],
+                                                       albums["size"],
+                                                       thumb_url['response'][0]['sizes'][-5]['url']
+                                                       ])
             return albums_id_title_size_thumb
-
         except Exception as e:
             return e.args
+        finally:
+            print(f'display_album(user_id: {user_id})')
 
     async def display_albums_id(self, user_id):
         try:
@@ -249,56 +280,64 @@ class DownloadVk:
             for albums in json_data["response"]["items"]:
                 albums_id.append(albums["id"])
             return albums_id
-
         except Exception as e:
             return e.args
+        finally:
+            print(f'display_albums_id(user_id: {user_id}')
+
+    async def display_albums_title(self, user_id, album_id: int | str):
+        try:
+            json_data = await self.display_album_id_title(user_id)
+            for key, value in json_data:
+                if key == album_id:
+                    return value
+        except Exception as e:
+            print(f'display_albums_title(user_id: {user_id}, album_id: {album_id}).'
+                  f' Exception {e.args}')
+            return e.args
+        finally:
+            print(f'display_albums_title(user_id: {user_id}, album_id: {album_id}')
 
     async def display_album_id_title(self, user_id):
         try:
             json_data = await self.get_albums(user_id)
-            albums_id_title = []
+            albums_id_title = {}
             for albums in json_data["response"]["items"]:
-                albums_id_title.append([albums["id"],
-                                        albums["title"]])
-            return albums_id_title
-
+                albums_id_title[str(albums["id"])] = albums["title"]
+            return albums_id_title.items()
         except Exception as e:
+            print(f'display_album_id_title(user_id: {user_id}).'
+                  f' Exception {e.args}')
             return e.args
+        finally:
+            print(f'display_album_id_title(user_id: {user_id}')
 
-    async def display_albums_title(self, user_id, album_id: int):
-        try:
-            albums_id_and_title = await self.display_album_id_title(user_id)
-            for i in range(len(albums_id_and_title)):
-                if albums_id_and_title[i][0] == album_id:
-                    return str(albums_id_and_title[i][1])
-        except Exception as e:
-            return e.args
-
-    async def save_album_into_db(self, user_id):
-        start = time.perf_counter()
-        users_db[f"{user_id}_albums"].create(
-            {
-                "photo_id": int,
-                "album_id": int,
-            }, pk="photo_id", if_not_exists=True)
-
-        photo_id_album_id_dict = self.photos_with_albums(user_id)
-
-        # set of photo IDs(ownerAndPhotoId_list) from the selected_album_id
-        for key, value in tqdm(photo_id_album_id_dict, token=os.environ.get("BOT_TOKEN"), chat_id=user_id):
-            users_db[f"{user_id}_albums"].insert_all(
-                [
-                    {
-                        "photo_id": key,
-                        "album_id": value
-                    }
-                ], pk="photo_id", replace=True)
-        end = time.perf_counter()
-        print(f'the function sorting_photos_into_albums(user_id: {user_id}) was executed for {end - start:0.4f} seconds')
+    async def upsert_all_photos_into_db(self, user_id):
+        if not users_db[f"{user_id}_all_photos"].exists():
+            start = time.perf_counter()
+            photo_id_album_id_dict = await self.photos_with_albums(user_id)
+            start_insert = time.perf_counter()
+            for key, value in tqdm(photo_id_album_id_dict, token=os.environ.get("BOT_TOKEN"), chat_id=user_id):
+                users_db[f"{user_id}_all_photos"].insert_all(
+                    [
+                        {
+                            "photo_id": key,
+                            "album_id": value
+                        }
+                    ], pk="photo_id", replace=True)
+            end_insert = time.perf_counter()
+            end = time.perf_counter()
+            print(f'users_db[f"{user_id}_all_photos"].insert_all was executed'
+                  f' in {end_insert - start_insert:0.4f} seconds')
+            print(f'the function insert_all_photos_into_db(user_id: {user_id}) '
+                  f'was executed in {end - start:0.4f} seconds')
+            return True
+        else:
+            return False
 
     # downloading PHOTOS by album
 
-    async def save_album_by_id(self, user_id, selected_album_id: int | list):
+    async def download_album_by_id(self, user_id, selected_album_id: int | str | list):
         start = time.perf_counter()
 
         users_db[f'{user_id}_photos'].drop()
@@ -322,34 +361,42 @@ class DownloadVk:
             album_title = await self.display_albums_title(user_id, selected_album_id)
 
             try:
-                photo_id_album_id_dict = await self.photos_with_albums(user_id)
-                photoIdOfSelectedAlbum = []
-                # set of photo IDs(ownerAndPhotoId_list) from the selected_album_id
-                if isinstance(selected_album_id, int):
-                    for key, value in photo_id_album_id_dict:
-                        if value == selected_album_id:
-                            photoIdOfSelectedAlbum.append(key)
+                start_get_all_photos = time.perf_counter()
 
+                photoIdsOfSelectedAlbum = []
+                if isinstance(selected_album_id, int):
+                    for key, value in await self.photos_with_albums(user_id):
+                        if value == selected_album_id:
+                            photoIdsOfSelectedAlbum.append(key)
+                elif isinstance(selected_album_id, str):
+                    for key, value in await self.service_albums(user_id, selected_album_id):
+                        if value == selected_album_id:
+                            photoIdsOfSelectedAlbum.append(key)
+                    album_title = 'Saved photos'
                 elif isinstance(selected_album_id, list):
-                    for key, value in photo_id_album_id_dict:
+                    for key, value in await self.photos_with_albums(user_id):
                         for item in selected_album_id:
                             if value == item:
-                                photoIdOfSelectedAlbum.append(key)
+                                photoIdsOfSelectedAlbum.append(key)
 
-                if len(photoIdOfSelectedAlbum) > 20:
+                end_get_all_photos = time.perf_counter()
+                print(f'user_id: {user_id}. photoIdsOfSelectedAlbum.append(key)'
+                      f' was completed in {end_get_all_photos - start_get_all_photos:0.4f} seconds')
+
+                if len(photoIdsOfSelectedAlbum) > 20:
 
                     # Split a list into Chunks using For Loops
                     chunked_list = list()
                     chunk_size = 20
-                    for i in range(0, len(photoIdOfSelectedAlbum), chunk_size):
-                        chunked_list.append(photoIdOfSelectedAlbum[i:i + chunk_size])
+                    for i in range(0, len(photoIdsOfSelectedAlbum), chunk_size):
+                        chunked_list.append(photoIdsOfSelectedAlbum[i:i + chunk_size])
 
                     print(chunk_size)
                     print(chunked_list)
 
                     for index in tqdm(range(len(chunked_list)), token=os.environ.get("BOT_TOKEN"), chat_id=user_id):
                         time.sleep(0.2)
-                        data = await self.get_photo_by_id_list(user_id, chunked_list[index])
+                        data = await self.get_photo_by_id(user_id, chunked_list[index])
                         for item in data['response']:
                             # loaded photos URL
                             users_db[f"{user_id}_photos"].insert_all(
@@ -365,7 +412,7 @@ class DownloadVk:
 
                             print(item["sizes"][-1]["url"])
                 else:
-                    data = await self.get_photo_by_id_list(user_id, photoIdOfSelectedAlbum)
+                    data = await self.get_photo_by_id(user_id, photoIdsOfSelectedAlbum)
                     for item in tqdm(data['response'], token=os.environ.get("BOT_TOKEN"),
                                      chat_id=user_id):
                         users_db[f"{user_id}_photos"].insert_all(
@@ -381,7 +428,7 @@ class DownloadVk:
                         print(item["sizes"][-1]["url"])
 
             except KeyError as ke:
-                print(f'save_album_by_id(user_id: {user_id}). KeyError {ke.args}')
+                print(f'download_album_by_id(user_id: {user_id}). KeyError {ke.args}')
 
             finally:
                 if users_db[f"{user_id}_photos"].count > 0:
@@ -389,16 +436,17 @@ class DownloadVk:
                         {
                             "user_id": user_id,
                             "vk_photo_download_completed": True,
-                            "number_downloaded_file": count
-
+                            "number_downloaded_file":
+                                users_db[f"{user_id}_photos"].count + count
                         }, pk="user_id")
                 end = time.perf_counter()
-                print(f'the function save_photo_by_id(user_id: {user_id}) was completed in {end - start:0.4f} seconds')
+                print(f'the function download_album_by_id(user_id: {user_id}) '
+                      f'was completed in {end - start:0.4f} seconds')
                 print(f'downloaded {users_db["user"].get(user_id).get("number_downloaded_file")}')
 
     # downloading DOCS
 
-    async def save_docs(self, user_id):
+    async def download_docs(self, user_id):
         users_db[f'{user_id}_docs'].drop()
         users_db[f"{user_id}_docs"].create(
             {

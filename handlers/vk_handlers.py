@@ -13,17 +13,12 @@ from social_nets.DownloadVk import DownloadVk
 def register_handlers_vk(dispatcher: Dispatcher):
     dispatcher.register_callback_query_handler(callback_button_vk, lambda c: c.data == 'buttonVk')
     dispatcher.register_message_handler(message_auth_vk, state=MyStates.auth_vk)
-
     dispatcher.register_message_handler(callback_select_storage, state=MyStates.select_storage)
-
     dispatcher.register_callback_query_handler(callback_auth_ya_disk, lambda c: c.data == 'auth_ya_disk')
     dispatcher.register_message_handler(message_auth_ya_disk, state=MyStates.auth_ya_disk)
-
     dispatcher.register_message_handler(message_select_vk_scope, state=MyStates.select_vk_scope)
-
     dispatcher.register_callback_query_handler(callback_display_albums_list, lambda c: c.data == 'photos')
     dispatcher.register_callback_query_handler(callback_save_album, state=MyStates.save_album)
-
     dispatcher.register_callback_query_handler(callback_save_docs, lambda c: c.data == 'docs')
 
 
@@ -156,14 +151,18 @@ def goto_select_vk_scope():
 
 @dp.callback_query_handler(lambda c: c.data == 'photos')
 async def callback_display_albums_list(callback_query: types.CallbackQuery):
+    await bot.send_message(callback_query.from_user.id,
+                           text='Подождите пока бот получит все фотографии из аккаунта',
+                           reply_markup=ReplyKeyboardRemove())
+    await DownloadVk().upsert_all_photos_into_db(callback_query.from_user.id)
     album_params = await DownloadVk().display_album(callback_query.from_user.id)
-    for album in album_params:
-        for a_id, title, size, thumbnail in album:
-            IK_albums_list = InlineKeyboardMarkup()
-            IK_albums_list.add(InlineKeyboardButton(callback_data=str(a_id), text="скачать"))
-            await bot.send_photo(callback_query.from_user.id, thumbnail,
-                                 caption='Альбом: ' + title + f'. Размер: {size}',
-                                 reply_markup=IK_albums_list)
+    for a_id, title, size, thumbnail in album_params:
+        IK_albums_list = InlineKeyboardMarkup()
+        IK_albums_list.add(InlineKeyboardButton(callback_data=str(a_id), text="скачать"))
+        await bot.send_photo(callback_query.from_user.id, thumbnail,
+                             caption='Альбом: ' + title + f'. Размер: {size}',
+                             reply_markup=IK_albums_list)
+
     IK_actions = InlineKeyboardMarkup()
     IK_actions.add(InlineKeyboardButton(text=emoji.emojize(':star:') + ' Скачать все альбомы',
                                         callback_data='save_all_photos'))
@@ -179,15 +178,15 @@ async def callback_display_albums_list(callback_query: types.CallbackQuery):
 async def callback_save_album(callback_query: types.CallbackQuery, state: FSMContext):
     user_id = callback_query.from_user.id
     async with state.proxy() as data:
-        if callback_query.data.isdigit():
+        if callback_query.data.isdigit() or callback_query.data == '-15':
             data['callback_data'] = callback_query.data
-            callback_selected_album_id = int(data['callback_data'])
+            callback_selected_album_id = data['callback_data']
             await state.finish()
 
             await bot.send_message(callback_query.from_user.id, text=f'Загрузка альбома из VK',
                                    reply_markup=ReplyKeyboardRemove())
             # downloading
-            await DownloadVk().save_album_by_id(user_id, callback_selected_album_id)
+            await DownloadVk().download_album_by_id(user_id, callback_selected_album_id)
 
             if users_db['user'].get(user_id).get('vk_photo_download_completed'):
                 await bot.send_message(callback_query.from_user.id,
@@ -225,7 +224,6 @@ async def callback_save_album(callback_query: types.CallbackQuery, state: FSMCon
 
         elif callback_query.data == 'save_all_photos':
             await callback_save_all_photo(callback_query)
-
         elif callback_query.data == 'back':
             await bot.send_message(callback_query.from_user.id, text='Назад',
                                    reply_markup=goto_select_vk_scope())
@@ -246,7 +244,7 @@ async def callback_save_all_photo(callback_query: types.CallbackQuery):
         await bot.send_message(callback_query.from_user.id, text=f'Загрузка всех фото из VK',
                                reply_markup=ReplyKeyboardRemove())
         # download all photos
-        await DownloadVk().save_album_by_id(user_id, albums_ids)
+        await DownloadVk().download_album_by_id(user_id, albums_ids)
 
         if users_db['user'].get(user_id).get('vk_photo_download_completed'):
             await bot.send_message(callback_query.from_user.id,
@@ -286,7 +284,7 @@ async def callback_save_all_photo(callback_query: types.CallbackQuery):
 async def callback_save_docs(callback_query: types.CallbackQuery):
     user_id = callback_query.from_user.id
     await bot.send_message(callback_query.from_user.id, text=f'Загрузка документов из VK')
-    await DownloadVk().save_docs(callback_query.from_user.id)
+    await DownloadVk().download_docs(callback_query.from_user.id)
 
     if users_db['user'].get(user_id).get('vk_docs_download_completed'):
         await bot.send_message(callback_query.from_user.id,
