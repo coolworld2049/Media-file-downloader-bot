@@ -1,8 +1,8 @@
+import asyncio
 import os
 import time
 
 import aiohttp
-import requests
 from tqdm.contrib.telegram import tqdm
 
 from db.database import users_db
@@ -34,13 +34,16 @@ class DownloadVk:
                 code = split_code[0]  # The parameter code can be used within 1 hour to get
                 # an access_token from your server.
 
-                get_access_token = requests.get('https://oauth.vk.com/access_token',
-                                                params={
-                                                    'client_id': self.vk_app_id,
-                                                    'client_secret': os.environ.get('vk_app_secret'),
-                                                    'redirect_uri': self.redirect_uri,
-                                                    'code': code
-                                                }).json()
+                async with aiohttp.ClientSession() as session:
+                    async with session.get('https://oauth.vk.com/access_token',
+                                           params={
+                                               'client_id': self.vk_app_id,
+                                               'client_secret': os.environ.get('vk_app_secret'),
+                                               'redirect_uri': self.redirect_uri,
+                                               'code': code
+                                           }) as resp:
+                        get_access_token = await resp.json()
+
                 if get_access_token['access_token']:
                     users_db["user"].upsert(
                         {
@@ -93,36 +96,6 @@ class DownloadVk:
             print(f'KeyError check_token(user_id: {user_id}): {ke2.args}')
             return False
 
-    # get available scopes
-
-    @staticmethod
-    async def get_scopes(user_id):
-        try:
-            scopes_list = []
-            async with aiohttp.ClientSession() as session:
-                async with session.get("https://api.vk.com/method/apps.getScopes",
-                                       params={
-                                           'access_token': users_db['user'].get(user_id).get('vk_token'),
-                                           'owner_id': 'user',
-                                           'v': 5.131
-                                       }) as resp:
-                    print(f'get_scopes(): response_status: {resp.status}')
-
-                    data = await resp.json()
-                    i = 0
-                    while i <= data["response"]["count"]:
-                        for names in data["response"]["items"]:
-                            scopes_list.append(names["items"]["name"])
-                            scopes_list.append(',')
-                            i += 1
-                    return scopes_list
-
-        except Exception as e:
-            print(f'get_scopes(): {e.args}')
-            return e.args
-        finally:
-            print(f'get_scopes(user_id: {user_id}): response_status: {resp.status}')
-
     # get JSON file with PHOTOS data
 
     @staticmethod
@@ -138,12 +111,11 @@ class DownloadVk:
                                        'v': 5.131
                                    }
                                    ) as resp:
-                print(
-                    f'get_all_photos(user_id: {user_id}): offset: {offset}, count: {count}, response_status: {resp.status}')
+                print(f'get_all_photos(user_id: {user_id}): offset: {offset}, count: {count}, response_status: {resp.status}')
                 return await resp.json()
 
     @staticmethod
-    async def get_service_albums(user_id, offset=0, count=0, service_album_id: str = '-15'):
+    async def get_service_albums(user_id, service_album_id: str, offset=0, count=0):
         async with aiohttp.ClientSession() as session:
             async with session.get("https://api.vk.com/method/photos.get",
                                    params={
@@ -215,14 +187,15 @@ class DownloadVk:
     # get SAVED PHOTOS
 
     async def service_albums(self, user_id, album_id: str):
+        """method for download saved, wall, profile photos"""
         start = time.perf_counter()
         try:
-            data = await self.get_service_albums(user_id, offset=0, count=0, service_album_id=album_id)
+            data = await self.get_service_albums(user_id, album_id, offset=0, count=0)
             photo_id_album_id = {}
             count = 200
             offset = 0
             while offset <= data["response"]["count"]:
-                data = await self.get_service_albums(user_id, offset=offset, count=count, service_album_id=album_id)
+                data = await self.get_service_albums(user_id, album_id, offset=offset, count=count)
                 for item in data["response"]["items"]:
                     photo_id_album_id[item["id"]] = str(item["album_id"])
                 offset += 200
@@ -395,7 +368,7 @@ class DownloadVk:
                     print(chunked_list)
 
                     for index in tqdm(range(len(chunked_list)), token=os.environ.get("BOT_TOKEN"), chat_id=user_id):
-                        time.sleep(0.2)
+                        await asyncio.sleep(0.25)
                         data = await self.get_photo_by_id(user_id, chunked_list[index])
                         for item in data['response']:
                             # loaded photos URL

@@ -1,4 +1,4 @@
-from pathlib import Path
+import os
 
 from pytube import YouTube
 
@@ -14,5 +14,5 @@ class DownloadYt:
         return video_title
 
     @staticmethod
-    async def delete_temp(file: str):
-        Path(f'temp/{file}').rmdir()
+    async def delete_temp(video: str):
+        os.remove(f'temp/{video}')

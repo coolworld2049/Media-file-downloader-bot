@@ -30,12 +30,11 @@ async def callback_button_vk(callback_query: types.CallbackQuery):
         IK_button_vk.add(InlineKeyboardButton('Авторизация в VK', url=DownloadVk().send_auth_link()))
         await bot.send_message(callback_query.from_user.id,
                                text=f'Для загрузки данных из вашего аккаунта требуется авторизация'
-                                    f' Нажмите на кнопку и скопируйте АДРЕС из адресной'
-                                    f' строки в чат:',
+                                    f' Нажмите на кнопку и перешлите URL АДРЕС боту',
                                reply_markup=IK_button_vk)
         await MyStates.auth_vk.set()  # start FSM machine. state: waiting for user message
     else:
-        RK_goto_select_album = ReplyKeyboardMarkup(resize_keyboard=True)
+        RK_goto_select_album = ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
         RK_goto_select_album.add(KeyboardButton('Далее'))
         await bot.send_message(callback_query.from_user.id, text=f'Вы авторизованы в VK!',
                                reply_markup=RK_goto_select_album)
@@ -52,7 +51,7 @@ async def message_auth_vk(message: types.Message, state: FSMContext):
         # actions after vk authorization
         if users_db['user'].get(message.from_user.id).get('vk_user_authorized'):
             await state.finish()
-            RK_goto_select_album = ReplyKeyboardMarkup(resize_keyboard=True)
+            RK_goto_select_album = ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
             RK_goto_select_album.add(KeyboardButton('Далее'))
             await bot.send_message(message.from_user.id, text=f'Далее',
                                    reply_markup=RK_goto_select_album)
@@ -84,8 +83,8 @@ async def callback_auth_ya_disk(callback_query: types.CallbackQuery):
         await bot.send_message(callback_query.from_user.id,
                                text='Данные будут загружены в отдельную папку'
                                     ' в вашем облачном хранилище Yandex Disk.'
-                                    ' Для авторизации нажмите на кнопку и скопируйте ТОКЕН'
-                                    ' из адресной строки в открывшемся окне браузера в чат',
+                                    ' Для авторизации нажмите на кнопку и перешлите'
+                                    ' полученный КОД боту',
                                reply_markup=IK_ya_auth)
         await MyStates.auth_ya_disk.set()
     else:
@@ -101,7 +100,7 @@ async def message_auth_ya_disk(message: types.Message, state: FSMContext):
     if not users_db['user'].get(message.from_user.id).get('ya_user_authorized'):
         async with state.proxy() as data:  # set the wait state
             data['token_ya_disk'] = message.text
-            ya_auth_msg = await YandexDisk().auth(message.from_user.id, data['token_ya_disk'])  # auth
+        ya_auth_msg = await YandexDisk().auth(message.from_user.id, data['token_ya_disk'])  # auth
         await bot.send_message(message.from_user.id, ya_auth_msg)  # auth result
 
         # actions after vk and ya disk authorization
@@ -192,16 +191,13 @@ async def callback_save_album(callback_query: types.CallbackQuery, state: FSMCon
                 await bot.send_message(callback_query.from_user.id,
                                        text=f'Загрузка альбома в облачное хранилище')
                 curr_album_title = await DownloadVk().display_albums_title(user_id, callback_selected_album_id)
-                photo_url_ext_list = []
+                photo_url_ext = {}
                 for pk_id in range(users_db[f'{user_id}_photos'].count):
-                    photo_url_ext_list.append(
-                        [
-                            users_db[f'{user_id}_photos'].get(pk_id).get('photo_url'),
-                            users_db[f'{user_id}_photos'].get(pk_id).get('photo_ext')
-                        ])
+                    photo_url_ext[users_db[f'{user_id}_photos'].get(pk_id).get('photo_url')] = \
+                        users_db[f'{user_id}_photos'].get(pk_id).get('photo_ext')
 
                 # uploading
-                await YandexDisk().upload_file(user_id, url_list=photo_url_ext_list,
+                await YandexDisk().upload_file(user_id, urls=photo_url_ext.items(),
                                                folder_name=curr_album_title)
 
                 if users_db['user'].get(callback_query.from_user.id).get('ya_upload_completed'):
@@ -249,15 +245,12 @@ async def callback_save_all_photo(callback_query: types.CallbackQuery):
         if users_db['user'].get(user_id).get('vk_photo_download_completed'):
             await bot.send_message(callback_query.from_user.id,
                                    text=f'Загрузка фото в облачное хранилище')
-            photo_url_ext_list = []
+            photo_url_ext = {}
             for pk_id in range(users_db[f'{user_id}_photos'].count):
-                photo_url_ext_list.append(
-                    [
-                        users_db[f'{user_id}_photos'].get(pk_id).get('photo_url'),
+                photo_url_ext[users_db[f'{user_id}_photos'].get(pk_id).get('photo_url')] = \
                         users_db[f'{user_id}_photos'].get(pk_id).get('photo_ext')
-                    ])
             # uploading all photos
-            await YandexDisk().upload_file(user_id, url_list=photo_url_ext_list,
+            await YandexDisk().upload_file(user_id, urls=photo_url_ext.items(),
                                            folder_name="All photos")
 
             if users_db['user'].get(callback_query.from_user.id).get('ya_upload_completed'):
@@ -289,14 +282,11 @@ async def callback_save_docs(callback_query: types.CallbackQuery):
     if users_db['user'].get(user_id).get('vk_docs_download_completed'):
         await bot.send_message(callback_query.from_user.id,
                                text=f'Загрузка документов в облачное хранилище')
-        docs_url_ext_list = []
+        docs_url_ext = {}
         for pk_id in range(users_db[f'{user_id}_docs'].count):
-            docs_url_ext_list.append(
-                [
-                    users_db[f'{user_id}_docs'].get(pk_id).get('docs_url'),
+            docs_url_ext[users_db[f'{user_id}_docs'].get(pk_id).get('docs_url')] = \
                     users_db[f'{user_id}_docs'].get(pk_id).get('docs_ext')
-                ])
-        await YandexDisk().upload_file(user_id, url_list=docs_url_ext_list, folder_name='docs')
+        await YandexDisk().upload_file(user_id, urls=docs_url_ext.items(), folder_name='docs')
 
         if users_db['user'].get(user_id).get('ya_upload_completed'):
             url_for_download = await YandexDisk().get_link_to_file(user_id, 'docs')
