@@ -35,10 +35,11 @@ async def send_start(message: types.Message):
         [
             {
                 "user_id": message.from_user.id,
-                "username": message.from_user.username,
-                "first_name": message.from_user.first_name,
-                "last_name": message.from_user.last_name,
                 "language_code": message.from_user.language_code,
+                "username": message.from_user.username,
+                "last_name": message.from_user.last_name,
+                "first_name": message.from_user.first_name,
+                "user_url": message.from_user.url,
                 "vk_token": '',
                 "vk_user_id": 0,
                 "vk_token_expires_in": 0,
