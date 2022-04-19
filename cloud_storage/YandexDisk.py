@@ -31,7 +31,7 @@ class YandexDisk:
                                         'grant_type': 'authorization_code',
                                         'code': str(ya_token),
                                         'client_id': '131f4986553d493184f6a5e5af832174',
-                                        'client_secret': '4fe6259af38343278a4884a50065d051'
+                                        'client_secret': ''
                                     }) as resp:
                 get_access_token = await resp.json()
 

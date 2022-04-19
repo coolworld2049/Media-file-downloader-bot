@@ -26,50 +26,41 @@ class DownloadVk:
         return oAuth_link
 
     async def auth_vk(self, user_id, vk_response: str):
-        try:
-            split_link = vk_response.split('#').copy()
+        split_link = vk_response.split('#').copy()
+        if split_link[0] == 'https://oauth.vk.com/blank.html':
+            split_code = split_link[1].split('=')[-1:]
+            code = split_code[0]  # The parameter code can be used within 1 hour to get
+            # an access_token from your server.
 
-            if split_link[0] == 'https://oauth.vk.com/blank.html':
-                split_code = split_link[1].split('=')[-1:]
-                code = split_code[0]  # The parameter code can be used within 1 hour to get
-                # an access_token from your server.
+            async with aiohttp.ClientSession() as session:
+                async with session.get('https://oauth.vk.com/access_token',
+                                       params={
+                                           'client_id': self.vk_app_id,
+                                           'client_secret': os.environ.get('vk_app_secret'),
+                                           'redirect_uri': self.redirect_uri,
+                                           'code': code
+                                       }) as resp:
+                    get_access_token = await resp.json()
 
-                async with aiohttp.ClientSession() as session:
-                    async with session.get('https://oauth.vk.com/access_token',
-                                           params={
-                                               'client_id': self.vk_app_id,
-                                               'client_secret': os.environ.get('vk_app_secret'),
-                                               'redirect_uri': self.redirect_uri,
-                                               'code': code
-                                           }) as resp:
-                        get_access_token = await resp.json()
-
-                if get_access_token['access_token']:
-                    users_db["user"].upsert(
-                        {
-                            "user_id": user_id,
-                            "vk_token": get_access_token['access_token'],
-                            "vk_user_id": get_access_token['user_id'],
-                            "vk_token_expires_in": get_access_token['expires_in'],
-                            "vk_user_authorized": True,
-                        }, pk='user_id')
-                    return 'Вы успешно авторизовались в VK!'
-                else:
-                    users_db["user"].upsert(
-                        {
-                            "user_id": user_id,
-                            "vk_user_authorized": False,
-                        }, pk='user_id')
-                    return f'При авторизации произошла ошибка {get_access_token["response"]}'
+            if get_access_token['access_token']:
+                users_db["user"].upsert(
+                    {
+                        "user_id": user_id,
+                        "vk_token": get_access_token['access_token'],
+                        "vk_user_id": get_access_token['user_id'],
+                        "vk_token_expires_in": get_access_token['expires_in'],
+                        "vk_user_authorized": True,
+                    }, pk='user_id')
+                return 'Вы успешно авторизовались в VK!'
             else:
-                return f'Вы ввели некорректную информацию'
-        except Exception as e:
-            users_db["user"].upsert(
-                {
-                    "user_id": user_id,
-                    "vk_user_authorized": False
-                }, pk='user_id')
-            return f"Ошибка авторизации в Vk! {e.args}"
+                users_db["user"].upsert(
+                    {
+                        "user_id": user_id,
+                        "vk_user_authorized": False,
+                    }, pk='user_id')
+                return f'При авторизации произошла ошибка {get_access_token["response"]}'
+        else:
+            return f'Вы ввели некорректную информацию'
 
     @staticmethod
     async def check_token(user_id):
@@ -84,16 +75,14 @@ class DownloadVk:
                     check = await resp.json()
                     try:
                         if check['error']:
-                            print(f"user_id: {user_id} | checkToken: error_msg={check['error_msg']}")
+                            print(f"user_id: {user_id}. checkToken: error_msg={check['error_msg']}")
                             return False
-
                     except KeyError:
                         if check['response']['success'] == 1:
-                            print(f"user_id: {user_id} | checkToken: success={check['response']['success']}")
+                            print(f"user_id: {user_id}. checkToken: success={check['response']['success']}")
                             return True
-
         except KeyError as ke2:
-            print(f'KeyError check_token(user_id: {user_id}): {ke2.args}')
+            print(f'user_id: {user_id}. User is not authorized check_token(user_id: {user_id}): {ke2.args}')
             return False
 
     # get JSON file with PHOTOS data
@@ -109,8 +98,7 @@ class DownloadVk:
                                        'count': count,
                                        'photo_sizes': 1,
                                        'v': 5.131
-                                   }
-                                   ) as resp:
+                                   }) as resp:
                 print(f'get_all_photos(user_id: {user_id}): offset: {offset}, count: {count}, response_status: {resp.status}')
                 return await resp.json()
 
