@@ -2,13 +2,15 @@ import emoji
 from aiogram import types, Dispatcher
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardRemove
 
-from core import dp, bot
+from core import dp, bot, MyStates
 from db.database import users_db
+from handlers.vk_handlers import goto_select_vk_scope
 from social_nets.DownloadVk import DownloadVk
 
 
 def register_handlers_main(dispatcher: Dispatcher):
     dispatcher.register_message_handler(send_start, commands="start")
+    dispatcher.register_message_handler(send_select, commands="select")
     dispatcher.register_message_handler(send_help, commands="help")
 
 
@@ -16,7 +18,8 @@ def register_handlers_main(dispatcher: Dispatcher):
 async def send_start(message: types.Message):
     # await DownloadYt().download_file()
 
-    await bot.send_message(message.from_user.id, text='Привет! Для загрузки фото и документов из вк'
+    await bot.send_message(message.from_user.id, text=f'Привет {message.from_user.first_name}!'
+                                                      f' Для загрузки фото и документов из вк'
                                                       ' необходимо авторизоваться в вк и выбрать место,'
                                                       ' куда будут загружены ваши фотографии',
                            reply_markup=ReplyKeyboardRemove())
@@ -47,7 +50,6 @@ async def send_start(message: types.Message):
                 "vk_photo_download_completed": False,
                 "vk_docs_download_completed": False,
                 "number_downloaded_file": 0,
-                "y_app_id": '131f4986553d493184f6a5e5af832174',
                 "y_api_token": '',
                 "ya_user_authorized": False,
                 "ya_upload_completed": False,
@@ -73,14 +75,22 @@ async def send_start(message: types.Message):
 
     if not await DownloadVk().check_token(message.from_user.id):
         users_db["user"].upsert(
-                {
-                    "user_id": message.from_user.id,
-                    "vk_user_authorized": False
-                }, pk="user_id")
+            {
+                "user_id": message.from_user.id,
+                "vk_user_authorized": False
+            }, pk="user_id")
+
+
+@dp.message_handler(commands='/select')
+async def send_select(message: types.Message):
+    await bot.send_message(message.from_user.id,
+                           text='Перейти к выбору области загрузки',
+                           reply_markup=goto_select_vk_scope())
+    await MyStates.select_vk_scope.set()
 
 
 @dp.message_handler(commands=['help'])
 async def send_help(message: types.Message):
     await message.answer('/start - выбрать соц. сеть\n'
-                         '                            '
+                         '/select - перейти к скачиванию с вк'
                          '/help - список команд')
