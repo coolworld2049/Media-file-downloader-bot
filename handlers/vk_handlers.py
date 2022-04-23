@@ -5,8 +5,7 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeybo
     ReplyKeyboardRemove
 
 from cloud_storage.YandexDisk import YandexDisk
-from core import dp, bot, MyStates
-from db.database import users_db
+from core import dp, bot, MyStates, users_db
 from social_nets.DownloadVk import DownloadVk
 
 
@@ -158,7 +157,7 @@ async def callback_display_albums_list(callback_query: types.CallbackQuery):
     for a_id, title, size, thumbnail in album_params:
         IK_albums_list = InlineKeyboardMarkup()
         IK_albums_list.add(InlineKeyboardButton(callback_data=str(a_id), text="скачать"))
-        thumb_url = await DownloadVk.get_photo_by_id(callback_query.from_user.id, thumbnail)
+        thumb_url = await DownloadVk().get_photo_by_id(callback_query.from_user.id, thumbnail)
         await bot.send_photo(callback_query.from_user.id, thumb_url['response'][0]['sizes'][-1]['url'],
                              caption='Альбом: ' + title + f'. Размер: {size}',
                              reply_markup=IK_albums_list)
@@ -171,6 +170,10 @@ async def callback_display_albums_list(callback_query: types.CallbackQuery):
     await bot.send_message(callback_query.from_user.id,
                            text=f'Также можно скачать все фотографии с аккаунта',
                            reply_markup=IK_actions)
+    await bot.send_message(callback_query.from_user.id,
+                           text=f'Внимание! Повторяющиеся фотографии будут удалены из списка загрузки.'
+                                f' Поэтому количество скачанных фотографий может отличаться от'
+                                f' их количества в альбоме')
     await MyStates.save_album.set()
 
 
@@ -210,7 +213,7 @@ async def callback_save_album(callback_query: types.CallbackQuery, state: FSMCon
                 if users_db['user'].get(callback_query.from_user.id).get('ya_upload_completed'):
                     url_for_download = await YandexDisk().publish(user_id, curr_album_title)
                     await bot.send_message(callback_query.from_user.id,
-                                           text=f'Ссылка для загрузки файлов:\n {url_for_download}')
+                                           text=url_for_download)
 
                     await bot.send_message(callback_query.from_user.id,
                                            text='Перейти к выбору области загрузки',
@@ -235,13 +238,10 @@ async def callback_save_album(callback_query: types.CallbackQuery, state: FSMCon
 
 async def callback_save_all_photo(callback_query: types.CallbackQuery):
     user_id = callback_query.from_user.id
-    limit = 3000
+    limit = 7000
     albums = await DownloadVk().get_albums(user_id)
     count_photos = sum([alb['size'] for alb in albums['response']['items']])
-    albums_ids = \
-        [
-            albums['id'] for _ in albums['response']['items']
-        ]
+    albums_ids = [item['id'] for item in albums['response']['items']]
 
     if count_photos <= limit:
         await bot.send_message(callback_query.from_user.id, text=f'Загрузка всех фото из VK',
@@ -264,7 +264,7 @@ async def callback_save_all_photo(callback_query: types.CallbackQuery):
             if users_db['user'].get(callback_query.from_user.id).get('ya_upload_completed'):
                 url_for_download = await YandexDisk().publish(user_id, 'All photos')
                 await bot.send_message(callback_query.from_user.id,
-                                       text=f'Ссылка для загрузки файлов:\n {url_for_download}')
+                                       text=url_for_download)
                 await bot.send_message(callback_query.from_user.id,
                                        text='Перейти к выбору области загрузки',
                                        reply_markup=goto_select_vk_scope())
@@ -285,8 +285,8 @@ async def callback_save_all_photo(callback_query: types.CallbackQuery):
 async def callback_save_docs(callback_query: types.CallbackQuery):
     user_id = callback_query.from_user.id
     await bot.send_message(callback_query.from_user.id, text=f'Загрузка документов из VK')
-    await DownloadVk().download_docs(callback_query.from_user.id)
-
+    res = await DownloadVk().download_docs(callback_query.from_user.id)
+    await bot.send_message(callback_query.from_user.id, text=res)
     if users_db['user'].get(user_id).get('vk_docs_download_completed'):
         await bot.send_message(callback_query.from_user.id,
                                text=f'Загрузка документов в облачное хранилище')
@@ -301,8 +301,7 @@ async def callback_save_docs(callback_query: types.CallbackQuery):
         if users_db['user'].get(user_id).get('ya_upload_completed'):
             url_for_download = await YandexDisk().publish(user_id, 'docs')
             await bot.send_message(callback_query.from_user.id,
-                                   text=f'Ссылка для загрузки файлов:\n'
-                                        f'{url_for_download}')
+                                   text=url_for_download)
             await bot.send_message(callback_query.from_user.id, text='Перейти к выбору области загрузки',
                                    reply_markup=goto_select_vk_scope())
             await MyStates.select_vk_scope.set()

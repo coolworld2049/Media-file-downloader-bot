@@ -2,8 +2,7 @@ import emoji
 from aiogram import types, Dispatcher
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardRemove
 
-from core import dp, bot, MyStates
-from db.database import users_db
+from core import dp, bot, MyStates, users_db
 from handlers.vk_handlers import goto_select_vk_scope
 from social_nets.DownloadVk import DownloadVk
 

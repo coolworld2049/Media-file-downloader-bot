@@ -6,9 +6,10 @@ from asyncio import gather
 
 from aiohttp import ClientSession as clientSession, ClientConnectorError
 from icecream import ic
+from memory_profiler import profile
 from tqdm.contrib.telegram import tqdm
 
-from db.database import users_db
+from core import users_db, fp
 
 
 class YandexDisk:
@@ -49,11 +50,6 @@ class YandexDisk:
                     }, pk='user_id')
                 return 'Вы успешно авторизовались в Яндекс диске!'
             else:
-                users_db["user"].upsert(
-                    {
-                        "user_id": user_id,
-                        "ya_user_authorized": False,
-                    }, pk='user_id')
                 return f'Ошибка авторизации: {resp.status} в Яндекс диске!'
 
     # actions with user disk
@@ -73,6 +69,7 @@ class YandexDisk:
                 print(f'get_folders(user_id: {user_id}): response_status: {resp.status}')
                 return await resp.json()
 
+    @profile(stream=fp, precision=4)
     async def create_folder(self, user_id, folder_name):
         status = 0
         count = 0
@@ -108,6 +105,7 @@ class YandexDisk:
                 case _:
                     return False
 
+    @profile(stream=fp, precision=4)
     async def delete_folder(self, user_id, folder_name):
         status = 0
         count = 0
@@ -139,7 +137,9 @@ class YandexDisk:
     # tested
 
     @staticmethod
-    async def upload_request_worker(counter: int, client_session: clientSession(), url: str, params: dict, data: str, headers: dict):
+    @profile(stream=fp, precision=4)
+    async def upload_request_worker(counter: int, client_session: clientSession(), url: str, params: dict, data: str,
+                                    headers: dict):
         start = time.time()
         async with client_session as session:
             async with session.post(url=url, params=params, data=data, headers=headers) as response:
@@ -156,6 +156,7 @@ class YandexDisk:
         return await coro
 
     @staticmethod
+    @profile(stream=fp, precision=4)
     async def upload_request_controller(list_of_chunks: list):
         tasks = [
             asyncio.create_task(YandexDisk().upload_request_worker(
@@ -177,6 +178,7 @@ class YandexDisk:
         return result
 
     @staticmethod
+    @profile(stream=fp, precision=4)
     async def get_operation_status(user_id, operation_id: str | list):
         if isinstance(operation_id, str):
             await asyncio.sleep(0.02)
@@ -208,7 +210,9 @@ class YandexDisk:
                                            }) as resp:
                         return await resp.json()
 
-    async def multiple_post_requests(self, user_id: int, cs: clientSession(), url: str, ext: str, counter: int, folder_name: str, overwrite: bool = False):
+    @profile(stream=fp, precision=4)
+    async def multiple_post_requests(self, user_id: int, cs: clientSession(), url: str, ext: str, counter: int,
+                                     folder_name: str, overwrite: bool = False):
         subfolder_path = f'{self.ROOT_FOLDER}/{folder_name}'
         async with cs as session:
             while True:
@@ -233,6 +237,7 @@ class YandexDisk:
                 finally:
                     await session.close()
 
+    @profile(stream=fp, precision=4)
     async def multitask_post_requests(self, user_id: int, data: dict, folder_name: str, overwrite: bool = False):
         counter = 0
         subfolder_path = f'{self.ROOT_FOLDER}/{folder_name}'
@@ -283,6 +288,7 @@ class YandexDisk:
 
     # working
 
+    @profile(stream=fp, precision=4)
     async def create_directory(self, user_id, folder_name):
         users_db['user'].upsert(
             {
@@ -298,13 +304,14 @@ class YandexDisk:
                       f'{end_create_dir - start_create_dir:0.4f} seconds')
                 return True
 
+    @profile(stream=fp, precision=4)
     async def upload_requests(self, user_id: int, data: dict, folder_name: str, overwrite: bool = False):
         counter = 0
         subfolder_path = f'{self.ROOT_FOLDER}/{folder_name}'
         async with clientSession() as session:
-            for url, ext in tqdm(data.items(), token=os.environ.get("BOT_TOKEN"), chat_id=user_id):
+            for url, ext in tqdm(data.items(), miniters=int(len(data.items()) / 100), mininterval=1.5,
+                                 token=os.environ.get("BOT_TOKEN"), chat_id=user_id):
                 try:
-                    await asyncio.sleep(0.01)
                     async with session.post(f"{self.URL}/upload",
                                             params={
                                                 'path': f'{subfolder_path}/{counter + 1}_file{ext}',
@@ -322,7 +329,7 @@ class YandexDisk:
                 except ClientConnectorError:
                     await asyncio.sleep(0.07)
                     continue
-
+            await session.close()
         users_db['user'].upsert(
             {
                 "user_id": user_id,
@@ -354,7 +361,7 @@ class YandexDisk:
                     "number_uploaded_file": counter
                 }, pk="user_id")"""
 
-            await YandexDisk().upload_requests(user_id, data, folder_name, overwrite)
+            await self.upload_requests(user_id, data, folder_name, overwrite)
 
             if len(data) == users_db["user"].get(user_id).get("number_uploaded_file") \
                     or (len(data) - users_db["user"].get(user_id).get("number_uploaded_file")) < 20:

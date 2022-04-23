@@ -6,6 +6,7 @@ from social_nets.DownloadYt import DownloadYt
 
 
 def register_handlers_yt(dispatcher: Dispatcher):
+    dispatcher.register_callback_query_handler(callback_yt, lambda c: c.data == 'button_video_yt')
     dispatcher.register_message_handler(message_download_yt, state=MyStates.save_video)
 
 
