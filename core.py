@@ -22,5 +22,3 @@ dp.middleware.setup(LoggingMiddleware())
 
 # --Database
 users_db = sqlite_utils.Database("db/users_db.db")
-
-
