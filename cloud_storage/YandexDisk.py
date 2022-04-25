@@ -6,25 +6,22 @@ from asyncio import gather
 
 from aiohttp import ClientSession as clientSession, ClientConnectorError
 from icecream import ic
-from memory_profiler import profile
 from tqdm.contrib.telegram import tqdm
 
-from core import users_db, fp
+from core import users_db
 
 
 class YandexDisk:
     def __init__(self):
-        self.URL = 'https://cloud-api.yandex.net/v1/disk/resources'
+        self.RESOURCES_URL = 'https://cloud-api.yandex.net/v1/disk/resources'
         self.ROOT_FOLDER = 'Saved from tg'
 
-    # authorization
+    # ----authorization---
 
     @staticmethod
     @abstractmethod
-    def send_link():
-
-        link = f'https://oauth.yandex.ru/authorize?response_type=token' \
-               f'&response_type=code' \
+    def link():
+        link = f'https://oauth.yandex.ru/authorize?&response_type=code' \
                f'&client_id={os.environ.get("ya_client_id")}'
         return link
 
@@ -35,7 +32,7 @@ class YandexDisk:
             async with session.post('https://oauth.yandex.ru/token',
                                     data={
                                         'grant_type': 'authorization_code',
-                                        'code': str(ya_token),
+                                        'code': ya_token,
                                         'client_id': os.environ.get('ya_client_id'),
                                         'client_secret': os.environ.get('ya_client_secret')
                                     }) as resp:
@@ -52,92 +49,10 @@ class YandexDisk:
             else:
                 return f'Ошибка авторизации: {resp.status} в Яндекс диске!'
 
-    # actions with user disk
-
-    async def get_folders(self, user_id, name: str = ''):
-        """ROOT_FOLDER/Optional[name]"""
-        async with clientSession() as session:
-            async with session.get(self.URL,
-                                   params={
-                                       'path': f'{self.ROOT_FOLDER}/{name}'
-                                   },
-                                   headers={
-                                       'Content-Type': 'application/json',
-                                       'Accept': 'application/json',
-                                       f'Authorization': f'OAuth {users_db["user"].get(user_id).get("y_api_token")}'
-                                   }) as resp:
-                print(f'get_folders(user_id: {user_id}): response_status: {resp.status}')
-                return await resp.json()
-
-    @profile(stream=fp, precision=4)
-    async def create_folder(self, user_id, folder_name):
-        status = 0
-        count = 0
-        while status != 201:
-            await asyncio.sleep(0.02)
-            async with clientSession() as session:
-                async with session.put(f'{self.URL}?',
-                                       params={
-                                           'path': folder_name
-                                       },
-                                       data=None,
-                                       headers={
-                                           'Content-Type': 'application/json',
-                                           'Accept': 'application/json',
-                                           'Authorization': f'OAuth {users_db["user"].get(user_id).get("y_api_token")}'
-                                       }) as resp:
-                    status = resp.status
-                    count += 1
-                    print(f'user_id: {user_id}. Try create dir "{folder_name}" in cloud storage.'
-                          f' Response code: {str(resp.status)}. Message: {await resp.json()}')
-            match status:
-                case 201:
-                    return True
-                case 423:
-                    continue
-                case 404:
-                    await self.create_folder(user_id, self.ROOT_FOLDER)
-                case 409:
-                    if folder_name == self.ROOT_FOLDER:
-                        return True
-                    else:
-                        await self.delete_folder(user_id, folder_name)
-                case _:
-                    return False
-
-    @profile(stream=fp, precision=4)
-    async def delete_folder(self, user_id, folder_name):
-        status = 0
-        count = 0
-        while status != 200 or 202 or 204:
-            await asyncio.sleep(0.05)
-            async with clientSession() as session:
-                async with session.delete(f'{self.URL}?',
-                                          params={
-                                              'path': f'{folder_name}',
-                                              'permanently': 'True'
-                                          },
-                                          headers={
-                                              'Content-Type': 'application/json',
-                                              'Accept': 'application/json',
-                                              'Authorization': f'OAuth {users_db["user"].get(user_id).get("y_api_token")}'
-                                          }) as resp:
-                    status = resp.status
-                    count += 1
-                    print(f'user_id: {user_id}. Try delete dir "{folder_name}" in cloud storage.'
-                          f' Response code: {str(resp.status)}. Message: {await resp.json()}')
-            match status:
-                case 200 | 202 | 204:
-                    return True
-                case 423:
-                    continue
-                case _:
-                    return False
-
-    # tested
+    # ------------------------TESTED------------------------
 
     @staticmethod
-    @profile(stream=fp, precision=4)
+    # @profile(stream=fp, precision=4)
     async def upload_request_worker(counter: int, client_session: clientSession(), url: str, params: dict, data: str,
                                     headers: dict):
         start = time.time()
@@ -156,7 +71,7 @@ class YandexDisk:
         return await coro
 
     @staticmethod
-    @profile(stream=fp, precision=4)
+    # @profile(stream=fp, precision=4)
     async def upload_request_controller(list_of_chunks: list):
         tasks = [
             asyncio.create_task(YandexDisk().upload_request_worker(
@@ -178,7 +93,7 @@ class YandexDisk:
         return result
 
     @staticmethod
-    @profile(stream=fp, precision=4)
+    # @profile(stream=fp, precision=4)
     async def get_operation_status(user_id, operation_id: str | list):
         if isinstance(operation_id, str):
             await asyncio.sleep(0.02)
@@ -210,14 +125,14 @@ class YandexDisk:
                                            }) as resp:
                         return await resp.json()
 
-    @profile(stream=fp, precision=4)
+    # @profile(stream=fp, precision=4)
     async def multiple_post_requests(self, user_id: int, cs: clientSession(), url: str, ext: str, counter: int,
                                      folder_name: str, overwrite: bool = False):
         subfolder_path = f'{self.ROOT_FOLDER}/{folder_name}'
         async with cs as session:
             while True:
                 try:
-                    async with session.post(f"{self.URL}/upload",
+                    async with session.post(f"{self.RESOURCES_URL}/upload",
                                             params={
                                                 'path': f'{subfolder_path}/{counter + 1}_file{ext}',
                                                 'url': url,
@@ -237,14 +152,14 @@ class YandexDisk:
                 finally:
                     await session.close()
 
-    @profile(stream=fp, precision=4)
+    # @profile(stream=fp, precision=4)
     async def multitask_post_requests(self, user_id: int, data: dict, folder_name: str, overwrite: bool = False):
         counter = 0
         subfolder_path = f'{self.ROOT_FOLDER}/{folder_name}'
         requests_dict = {}
         for url, ext in data.items():
             requests_dict[counter] = {
-                'url': f"{self.URL}/upload",
+                'url': f"{self.RESOURCES_URL}/upload",
                 'params': {
                     'path': f'{subfolder_path}/{counter + 1}_file{ext}',
                     'url': url,
@@ -280,110 +195,110 @@ class YandexDisk:
                       for i in range(len(result[0]))]
             ic(status)
 
-        users_db['user'].upsert(
-            {
-                "user_id": user_id,
-                "number_uploaded_file": counter
-            }, pk="user_id")
+    # ------------------------WORKING------------------------
 
-    # working
+    # ----yandex disk api requests----
 
-    @profile(stream=fp, precision=4)
-    async def create_directory(self, user_id, folder_name):
-        users_db['user'].upsert(
-            {
-                "user_id": user_id,
-                "ya_upload_completed": False,
-                "number_uploaded_file": 0
-            }, pk="user_id")
-        start_create_dir = time.perf_counter()
-        if await self.create_folder(user_id, self.ROOT_FOLDER):
-            if await self.create_folder(user_id, f'{self.ROOT_FOLDER}/{folder_name}'):
-                end_create_dir = time.perf_counter()
-                print(f'user_id: {user_id}. Directory creation was done in '
-                      f'{end_create_dir - start_create_dir:0.4f} seconds')
-                return True
-
-    @profile(stream=fp, precision=4)
-    async def upload_requests(self, user_id: int, data: dict, folder_name: str, overwrite: bool = False):
-        counter = 0
-        subfolder_path = f'{self.ROOT_FOLDER}/{folder_name}'
-        async with clientSession() as session:
-            for url, ext in tqdm(data.items(), miniters=int(len(data.items()) / 100), mininterval=1.5,
-                                 token=os.environ.get("BOT_TOKEN"), chat_id=user_id):
-                try:
-                    async with session.post(f"{self.URL}/upload",
-                                            params={
-                                                'path': f'{subfolder_path}/{counter + 1}_file{ext}',
-                                                'url': url,
-                                                'overwrite': str(overwrite)
-                                            },
-                                            data=None,
-                                            headers={
-                                                'Content-Type': 'application/json',
-                                                'Accept': 'application/json',
-                                                'Authorization': f'OAuth {users_db["user"].get(user_id).get("y_api_token")}'
-                                            }) as resp:
-                        counter += 1
-                        print(f" album: {subfolder_path} | status: {resp.status}")
-                except ClientConnectorError:
-                    await asyncio.sleep(0.07)
+    # @profile(stream=fp, precision=4)
+    async def request_create_folder(self, user_id, folder_name):
+        status = 0
+        count = 0
+        while status != 201:
+            await asyncio.sleep(0.02)
+            async with clientSession() as session:
+                async with session.put(f'{self.RESOURCES_URL}?',
+                                       params={
+                                           'path': folder_name
+                                       },
+                                       data=None,
+                                       headers={
+                                           'Content-Type': 'application/json',
+                                           'Accept': 'application/json',
+                                           'Authorization': f'OAuth {users_db["user"].get(user_id).get("y_api_token")}'
+                                       }) as resp:
+                    status = resp.status
+                    count += 1
+                    print(f'user_id: {user_id}. Try create dir "{folder_name}" in cloud storage.'
+                          f' Response code: {str(resp.status)}. Message: {await resp.json()}')
+            match status:
+                case 201:
+                    return True
+                case 423:
                     continue
-            await session.close()
-        users_db['user'].upsert(
-            {
-                "user_id": user_id,
-                "number_uploaded_file": counter
-            }, pk="user_id")
+                case 404:
+                    await self.request_create_folder(user_id, self.ROOT_FOLDER)
+                case 409:
+                    if folder_name == self.ROOT_FOLDER:
+                        return True
+                    else:
+                        await self.request_delete_folder(user_id, folder_name)
+                case _:
+                    return False
 
-    async def upload_file(self, user_id: int, data: dict, folder_name: str, overwrite: bool = False):
-        """
-        :param user_id: int
-        :param data: dict[url, ext]
-        :param folder_name: destination folder
-        :param overwrite: bool
-        """
-        start = time.perf_counter()
-        if await self.create_directory(user_id, folder_name):
-            # await YandexDisk().multitask_post_requests(user_id, data, folder_name, overwrite)
-            """counter = 0
-            for url, ext in tqdm(data.items(), token=os.environ.get("BOT_TOKEN"), chat_id=user_id):
-                await asyncio.gather(YandexDisk().multiple_post_requests(user_id,
-                                                                         clientSession(),
-                                                                         url, ext,
-                                                                         counter,
-                                                                         folder_name,
-                                                                         overwrite))
-                counter += 1
-            users_db['user'].upsert(
-                {
-                    "user_id": user_id,
-                    "number_uploaded_file": counter
-                }, pk="user_id")"""
+    # @profile(stream=fp, precision=4)
+    async def request_delete_folder(self, user_id, folder_name):
+        status = 0
+        count = 0
+        while status != 200 or 202 or 204:
+            await asyncio.sleep(0.05)
+            async with clientSession() as session:
+                async with session.delete(f'{self.RESOURCES_URL}?',
+                                          params={
+                                              'path': f'{folder_name}',
+                                              'permanently': 'True'
+                                          },
+                                          headers={
+                                              'Content-Type': 'application/json',
+                                              'Accept': 'application/json',
+                                              'Authorization': f'OAuth {users_db["user"].get(user_id).get("y_api_token")}'
+                                          }) as resp:
+                    status = resp.status
+                    count += 1
+                    print(f'user_id: {user_id}. Try delete dir "{folder_name}" in cloud storage.'
+                          f' Response code: {str(resp.status)}. Message: {await resp.json()}')
+            match status:
+                case 200 | 202 | 204:
+                    return True
+                case 423:
+                    continue
+                case _:
+                    return False
 
-            await self.upload_requests(user_id, data, folder_name, overwrite)
+    async def request_publish(self, user_id, folder_name: str):
+        if users_db["user"].get(user_id).get("ya_upload_completed"):
+            try:
+                async with clientSession() as session:
+                    async with session.put(f"{self.RESOURCES_URL}/publish",
+                                           params={
+                                               'path': f"{self.ROOT_FOLDER}/{folder_name}"
+                                           },
+                                           data=None,
+                                           headers={
+                                               'Content-Type': 'application/json',
+                                               'Accept': 'application/json',
+                                               'Authorization': f'OAuth {users_db["user"].get(user_id).get("y_api_token")}'
+                                           }) as put_resp:
+                        print(f'user_id: {user_id}. Publish folder: {self.ROOT_FOLDER}/{folder_name}.'
+                              f' Response: {put_resp.status}')
 
-            if len(data) == users_db["user"].get(user_id).get("number_uploaded_file") \
-                    or (len(data) - users_db["user"].get(user_id).get("number_uploaded_file")) < 20:
-                users_db["user"].upsert(
-                    {
-                        "user_id": user_id,
-                        "ya_upload_completed": True,
-                    }, pk='user_id')
-            else:
-                users_db["user"].upsert(
-                    {
-                        "user_id": user_id,
-                        "ya_upload_completed": False,
-                    }, pk='user_id')
-        end = time.perf_counter()
-        print(f'\nthe function upload_file(user_id: {user_id}) was completed in {end - start:0.4f} seconds')
-        print(f'uploaded {users_db["user"].get(user_id).get("number_uploaded_file")}')
+            except KeyError as ke:
+                print(f'get_link_file(user_id: {user_id}) KeyError' + str(ke.args))
+                return f'get_link_file() KeyError {ke.args}'
+            finally:
+                published = await self.request_public(user_id, folder_name)
+                if published:
+                    for item in published['items']:
+                        if item['name'] == folder_name:
+                            return item['public_url']
+                else:
+                    return 'При получении ссылки на опубликованный ресурс произошла ошибка'
+        else:
+            return f'get_link_file(user_id: {user_id}): ya_upload_completed: 0'
 
-    async def public(self, user_id, folder_name: str = ''):
+    async def request_public(self, user_id, folder_name: str = ''):
         """get_published_file"""
         async with clientSession() as session:
-            async with session.get(f"{self.URL}/public",
+            async with session.get(f"{self.RESOURCES_URL}/public",
                                    params={
                                        'path': f"{self.ROOT_FOLDER}/{folder_name}",
                                        'type': 'dir',
@@ -402,12 +317,12 @@ class YandexDisk:
                     error = await resp.json()
                     return error['descriptions']
 
-    async def download(self, user_id, folder_name: str = '', file: str = '', ext: str = ''):
+    async def request_download(self, user_id, folder_name: str = '', file: str = '', ext: str = ''):
         """get link to file or folder"""
         if users_db["user"].get(user_id).get("ya_upload_completed"):
             try:
                 async with clientSession() as session:
-                    async with session.get(f"{self.URL}/download",
+                    async with session.get(f"{self.RESOURCES_URL}/download",
                                            params={
                                                'path': f"{self.ROOT_FOLDER}/{folder_name}/{file}{ext}"
                                            },
@@ -431,33 +346,91 @@ class YandexDisk:
         else:
             return f'download_file(user_id: {user_id}): ya_upload_completed: 0'
 
-    async def publish(self, user_id, folder_name: str):
-        if users_db["user"].get(user_id).get("ya_upload_completed"):
-            try:
-                async with clientSession() as session:
-                    async with session.put(f"{self.URL}/publish",
-                                           params={
-                                               'path': f"{self.ROOT_FOLDER}/{folder_name}"
-                                           },
-                                           data=None,
-                                           headers={
-                                               'Content-Type': 'application/json',
-                                               'Accept': 'application/json',
-                                               'Authorization': f'OAuth {users_db["user"].get(user_id).get("y_api_token")}'
-                                           }) as put_resp:
-                        print(f'user_id: {user_id}. Publish folder: {self.ROOT_FOLDER}/{folder_name}.'
-                              f' Response: {put_resp.status}')
+    # @profile(stream=fp, precision=4)
+    async def request_upload(self, user_id: int, data: dict, folder_name: str, overwrite: bool = False):
+        counter = 0
+        subfolder_path = f'{self.ROOT_FOLDER}/{folder_name}'
+        mininterval = len(data)/1000
+        async with clientSession() as session:
+            for url, ext in tqdm(data.items(), mininterval=mininterval, token=os.environ.get("BOT_TOKEN"),
+                                 chat_id=user_id):
+                try:
+                    async with session.post(f"{self.RESOURCES_URL}/upload",
+                                            params={
+                                                'path': f'{subfolder_path}/{counter + 1}_file{ext}',
+                                                'url': url,
+                                                'overwrite': str(overwrite)
+                                            },
+                                            data=None,
+                                            headers={
+                                                'Content-Type': 'application/json',
+                                                'Accept': 'application/json',
+                                                'Authorization': f'OAuth {users_db["user"].get(user_id).get("y_api_token")}'
+                                            }) as resp:
+                        counter += 1
+                        print(f" album: {subfolder_path} | status: {resp.status}")
+                except ClientConnectorError:
+                    await asyncio.sleep(0.07)
+                    continue
+            await session.close()
+        users_db['user'].upsert(
+            {
+                "user_id": user_id,
+                "total_number_uploaded_file":
+                    users_db["user"].get(user_id).get("total_number_uploaded_file") + counter
+            }, pk="user_id")
 
-            except KeyError as ke:
-                print(f'get_link_file(user_id: {user_id}) KeyError' + str(ke.args))
-                return f'get_link_file() KeyError {ke.args}'
-            finally:
-                published = await self.public(user_id, folder_name)
-                if published:
-                    for item in published['items']:
-                        if item['name'] == folder_name:
-                            return item['public_url']
-                else:
-                    return 'При получении ссылки на опубликованный ресурс произошла ошибка'
-        else:
-            return f'get_link_file(user_id: {user_id}): ya_upload_completed: 0'
+    # ----processing response from vk api----
+
+    # @profile(stream=fp, precision=4)
+    async def create_directory(self, user_id, folder_name):
+        users_db['user'].upsert(
+            {
+                "user_id": user_id,
+                "ya_upload_completed": False,
+            }, pk="user_id")
+        start_create_dir = time.perf_counter()
+        if await self.request_create_folder(user_id, self.ROOT_FOLDER):
+            if await self.request_create_folder(user_id, f'{self.ROOT_FOLDER}/{folder_name}'):
+                end_create_dir = time.perf_counter()
+                print(f'user_id: {user_id}. Directory creation was done in '
+                      f'{end_create_dir - start_create_dir:0.4f} seconds')
+                return True
+
+    async def upload_file(self, user_id: int, data: dict, folder_name: str, overwrite: bool = False):
+        start = time.perf_counter()
+        if await self.create_directory(user_id, folder_name):
+            # await YandexDisk().multitask_post_requests(user_id, data, folder_name, overwrite)
+            """counter = 0
+            for url, ext in tqdm(data.items(), token=os.environ.get("BOT_TOKEN"), chat_id=user_id):
+                await asyncio.gather(YandexDisk().multiple_post_requests(user_id,
+                                                                         clientSession(),
+                                                                         url, ext,
+                                                                         counter,
+                                                                         folder_name,
+                                                                         overwrite))
+                counter += 1
+            users_db['user'].upsert(
+            {
+                "user_id": user_id,
+                "total_number_uploaded_file": 
+                    users_db["user"].get(user_id).get("total_number_uploaded_file") + counter
+            }, pk="user_id")"""
+
+            await self.request_upload(user_id, data, folder_name, overwrite)
+
+            if len(data) == users_db["user"].get(user_id).get("total_number_uploaded_file"):
+                users_db["user"].upsert(
+                    {
+                        "user_id": user_id,
+                        "ya_upload_completed": True,
+                    }, pk='user_id')
+            else:
+                users_db["user"].upsert(
+                    {
+                        "user_id": user_id,
+                        "ya_upload_completed": False,
+                    }, pk='user_id')
+        end = time.perf_counter()
+        print(f'\nthe function upload_file(user_id: {user_id}) was completed in {end - start:0.4f} seconds')
+        print(f'uploaded {users_db["user"].get(user_id).get("total_number_uploaded_file")}')

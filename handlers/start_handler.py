@@ -4,7 +4,6 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeybo
 
 from core import dp, bot, MyStates, users_db
 from handlers.vk_handlers import goto_select_vk_scope
-from social_nets.DownloadVk import DownloadVk
 
 
 def register_handlers_main(dispatcher: Dispatcher):
@@ -15,46 +14,51 @@ def register_handlers_main(dispatcher: Dispatcher):
 
 @dp.message_handler(commands=['start'])
 async def send_start(message: types.Message):
-    # await DownloadYt().download_file()
-
     await bot.send_message(message.from_user.id, text=f'Привет {message.from_user.first_name}!'
-                                                      f' Для загрузки фото и документов из вк'
+                                                      ' Для загрузки фото и документов из вк'
                                                       ' необходимо авторизоваться в вк и выбрать место,'
                                                       ' куда будут загружены ваши фотографии',
                            reply_markup=ReplyKeyboardRemove())
-    # display source list
     IK_select_source = InlineKeyboardMarkup(row_width=2)
-    IK_select_source.add(InlineKeyboardButton(text=emoji.emojize(':dizzy: Get from Vk'),
-                                              callback_data='buttonVk'),
-                         InlineKeyboardButton(text=emoji.emojize(':globe_with_meridians: '
-                                                                 'Get from YouTube'),
-                                              callback_data='button_video_yt'))
+    IK_select_source.add(
+        InlineKeyboardButton(text=emoji.emojize(':dizzy: Get from VK'), callback_data='buttonVk'),
+        InlineKeyboardButton(text=emoji.emojize(':globe_with_meridians: Get from YouTube'),
+                             callback_data='button_video_yt'))
+    await bot.send_message(message.from_user.id, text='Выбери соц.сеть', reply_markup=IK_select_source)
 
-    await bot.send_message(message.from_user.id, text='Выбери соц.сеть',
-                           reply_markup=IK_select_source)
-
-    users_db["user"].insert_all(
-        [
+    if users_db["user"].exists():
+        users_db["user"].upsert(
             {
                 "user_id": message.from_user.id,
-                "language_code": message.from_user.language_code,
-                "username": message.from_user.username,
-                "last_name": message.from_user.last_name,
-                "first_name": message.from_user.first_name,
-                "user_url": message.from_user.url,
-                "vk_token": '',
-                "vk_user_id": 0,
-                "vk_token_expires_in": 0,
                 "vk_user_authorized": False,
                 "vk_photo_download_completed": False,
                 "vk_docs_download_completed": False,
-                "number_downloaded_file": 0,
-                "y_api_token": '',
+                "total_number_downloaded_file": 0,
                 "ya_user_authorized": False,
                 "ya_upload_completed": False,
-                "number_uploaded_file": 0
-            }
-        ], pk="user_id", ignore=True)
+                "total_number_uploaded_file": 0
+            }, pk="user_id")
+
+    users_db["user"].create(
+        {
+            "user_id": message.from_user.id,
+            "language_code": message.from_user.language_code,
+            "username": message.from_user.username,
+            "last_name": message.from_user.last_name,
+            "first_name": message.from_user.first_name,
+            "user_url": message.from_user.url,
+            "vk_token": '',
+            "vk_user_id": 0,
+            "vk_token_expires_in": 0,
+            "vk_user_authorized": False,
+            "vk_photo_download_completed": False,
+            "vk_docs_download_completed": False,
+            "total_number_downloaded_file": 0,
+            "y_api_token": '',
+            "ya_user_authorized": False,
+            "ya_upload_completed": False,
+            "total_number_uploaded_file": 0
+        }, pk="user_id", if_not_exists=True)
 
     users_db[f"{message.from_user.id}_photos"].create(
         {
@@ -71,13 +75,6 @@ async def send_start(message: types.Message):
             "docs_ext": str,
             "title": str
         }, pk="id", if_not_exists=True)
-
-    if not await DownloadVk().check_token(message.from_user.id):
-        users_db["user"].upsert(
-            {
-                "user_id": message.from_user.id,
-                "vk_user_authorized": False
-            }, pk="user_id")
 
 
 @dp.message_handler(commands='/select')
