@@ -2,10 +2,9 @@ import asyncio
 import os
 import time
 from abc import abstractmethod
-from asyncio import gather
 
+import nest_asyncio
 from aiohttp import ClientSession as clientSession, ClientConnectorError
-from icecream import ic
 from tqdm.contrib.telegram import tqdm
 
 from core import users_db
@@ -49,108 +48,17 @@ class YandexDisk:
             else:
                 return f'Ошибка авторизации: {resp.status} в Яндекс диске!'
 
-    # ------------------------TESTED------------------------
-
     @staticmethod
     # @profile(stream=fp, precision=4)
-    async def upload_request_worker(counter: int, client_session: clientSession(), url: str, params: dict, data: str,
-                                    headers: dict):
-        start = time.time()
-        async with client_session as session:
-            async with session.post(url=url, params=params, data=data, headers=headers) as response:
-                end = time.time()
-                completed_id = f'Task {counter - 1} completed in {end - start:0.4f} seconds'
-                resp_code = f'Response code: {response.status}'
-                ic((completed_id, url, params, data, headers, resp_code, client_session))
+    async def request_upload_worker(url: str, params: dict, data: str, headers: dict):
+        async with clientSession() as session:
+            async with session.post(url=url, params=params, data=data, headers=headers):
                 await session.close()
-                return await response.json()
 
     @staticmethod
     async def wrapper(delay, coro):
         await asyncio.sleep(delay)
         return await coro
-
-    @staticmethod
-    # @profile(stream=fp, precision=4)
-    async def upload_request_controller(list_of_chunks: list):
-        tasks = [
-            asyncio.create_task(YandexDisk().upload_request_worker(
-                index,
-                clientSession(),
-                list_of_chunks[index]['url'],
-                list_of_chunks[index]['params'],
-                list_of_chunks[index]['data'],
-                list_of_chunks[index]['headers']))
-            for index in range(len(list_of_chunks))
-        ]
-        result = [await gather(YandexDisk().wrapper(0.1, tasks[task]))
-                  for task in range(len(tasks))]
-        """result2 = [await gather(*tasks, return_exceptions=True)]
-        for res in result2:
-            if isinstance(res, BaseException):
-                print(f'BaseException: {res}')
-                ic(res)"""
-        return result
-
-    @staticmethod
-    # @profile(stream=fp, precision=4)
-    async def get_operation_status(user_id, operation_id: str | list):
-        if isinstance(operation_id, str):
-            await asyncio.sleep(0.02)
-            async with clientSession() as session:
-                async with session.get(f'https://cloud-api.yandex.net/v1/disk/operations',
-                                       params={
-                                           'operation_id': operation_id
-                                       },
-                                       headers={
-                                           'Content-Type': 'application/json',
-                                           'Accept': 'application/json',
-                                           'Authorization': f'OAuth {users_db["user"].get(user_id).get("y_api_token")}'
-                                       }) as resp:
-                    return await resp.json()
-
-        elif isinstance(operation_id, list):
-            async with clientSession() as session:
-                for res in operation_id:
-                    op_id_href: str = res[0]['href']
-                    op_id = op_id_href.split('/')
-                    async with session.get(f'https://cloud-api.yandex.net/v1/disk/operations',
-                                           params={
-                                               'operation_id': op_id[-1]
-                                           },
-                                           headers={
-                                               'Content-Type': 'application/json',
-                                               'Accept': 'application/json',
-                                               'Authorization': f'OAuth {users_db["user"].get(user_id).get("y_api_token")}'
-                                           }) as resp:
-                        return await resp.json()
-
-    # @profile(stream=fp, precision=4)
-    async def multiple_post_requests(self, user_id: int, cs: clientSession(), url: str, ext: str, counter: int,
-                                     folder_name: str, overwrite: bool = False):
-        subfolder_path = f'{self.ROOT_FOLDER}/{folder_name}'
-        async with cs as session:
-            while True:
-                try:
-                    async with session.post(f"{self.RESOURCES_URL}/upload",
-                                            params={
-                                                'path': f'{subfolder_path}/{counter + 1}_file{ext}',
-                                                'url': url,
-                                                'overwrite': str(overwrite)
-                                            },
-                                            data=None,
-                                            headers={
-                                                'Content-Type': 'application/json',
-                                                'Accept': 'application/json',
-                                                'Authorization': f'OAuth {users_db["user"].get(user_id).get("y_api_token")}'
-                                            }) as resp:
-                        print(f" album: {subfolder_path} | status: {resp.status}")
-                except ClientConnectorError:
-                    print('multiple_post_requests ClientConnectorError')
-                    await asyncio.sleep(0.05)
-                    continue
-                finally:
-                    await session.close()
 
     # @profile(stream=fp, precision=4)
     async def multitask_post_requests(self, user_id: int, data: dict, folder_name: str, overwrite: bool = False):
@@ -174,28 +82,27 @@ class YandexDisk:
                 }}
             counter += 1
 
-        chunk_size = len(requests_dict)
+        chunk_size = 10
         requests_list = [value for key, value in requests_dict.items()]
         list_of_chunks = [requests_list[i:i + chunk_size]
                           for i in range(0, len(requests_list), chunk_size)]
         if len(requests_dict) >= chunk_size:
-            result = []
-            for chunk in tqdm(range(len(list_of_chunks)), token=os.environ.get("BOT_TOKEN"),
-                              chat_id=user_id):
-                result.append(await YandexDisk().upload_request_controller(list_of_chunks[chunk]))
-                status = [await YandexDisk().get_operation_status(user_id, result[chunk][i][0]['href'])
-                          for i in range(len(result[chunk]))]
-                ic(status)
-            ic(result)
-
-        else:
-            result = [await YandexDisk().upload_request_controller(requests_list)]
-            ic(result)
-            status = [await YandexDisk().get_operation_status(user_id, result[0][i][0]['href'])
-                      for i in range(len(result[0]))]
-            ic(status)
-
-    # ------------------------WORKING------------------------
+            tasks = []
+            nest_asyncio.apply()
+            loop = asyncio.get_running_loop()
+            for i in tqdm(range(len(list_of_chunks)), token=os.environ.get("BOT_TOKEN"),
+                          chat_id=user_id):
+                for ch_items in list_of_chunks[i]:
+                    tasks.append(loop.create_task(
+                            self.wrapper(0.03, self.request_upload_worker(
+                                ch_items['url'],
+                                ch_items['params'],
+                                ch_items['data'],
+                                ch_items['headers']))))
+                await asyncio.sleep(1.1)
+                for k in range(len(tasks)):
+                    loop.run_until_complete(tasks[i])
+                    print(f'Task {k} run_until_complete: {tasks[k]}')
 
     # ----yandex disk api requests----
 
@@ -346,6 +253,8 @@ class YandexDisk:
         else:
             return f'download_file(user_id: {user_id}): ya_upload_completed: 0'
 
+    # ----processing response from yandex disk api----
+
     # @profile(stream=fp, precision=4)
     async def request_upload_file(self, user_id: int, data: dict, folder_name: str, overwrite: bool = False):
         counter = 0
@@ -382,8 +291,6 @@ class YandexDisk:
         print(f'uploaded {counter}')
         return counter
 
-    # ----processing response from vk api----
-
     # @profile(stream=fp, precision=4)
     async def create_directory(self, user_id, folder_name):
         users_db['user'].upsert(
@@ -402,29 +309,21 @@ class YandexDisk:
     async def upload_file(self, user_id: int, data: dict, folder_name: str, overwrite: bool = False):
         start = time.perf_counter()
         if await self.create_directory(user_id, folder_name):
-            # await YandexDisk().multitask_post_requests(user_id, data, folder_name, overwrite)
-            """counter = 0
-            for url, ext in tqdm(data.items(), token=os.environ.get("BOT_TOKEN"), chat_id=user_id):
-                await asyncio.gather(YandexDisk().multiple_post_requests(user_id,
-                                                                         clientSession(),
-                                                                         url, ext,
-                                                                         counter,
-                                                                         folder_name,
-                                                                         overwrite))
-                counter += 1
-            users_db['user'].upsert(
-            {
-                "user_id": user_id,
-                "total_number_uploaded_file": 
-                    users_db["user"].get(user_id).get("total_number_uploaded_file") + counter
-            }, pk="user_id")"""
-
-            if (len(data) / await self.request_upload_file(user_id, data, folder_name, overwrite)) \
-                    < 1.11111111111:
+            if len(data) <= 10:
+                if (len(data) / await self.request_upload_file(user_id, data, folder_name, overwrite)) \
+                        < 1.11111111111:
+                    users_db["user"].upsert(
+                        {
+                            "user_id": user_id,
+                            "ya_upload_completed": True,
+                        }, pk='user_id')
+            else:
+                await self.multitask_post_requests(user_id, data, folder_name, overwrite)
                 users_db["user"].upsert(
                     {
                         "user_id": user_id,
                         "ya_upload_completed": True,
                     }, pk='user_id')
+
         end = time.perf_counter()
         print(f'\nthe function upload_file(user_id: {user_id}) was completed in {end - start:0.4f} seconds')

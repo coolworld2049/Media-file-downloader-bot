@@ -152,7 +152,6 @@ async def callback_display_albums_list(callback_query: types.CallbackQuery):
     await bot.send_message(callback_query.from_user.id,
                            text='Подождите пока бот получит все фотографии из аккаунта',
                            reply_markup=ReplyKeyboardRemove())
-    await DownloadVk().upsert_all_photo_into_db(callback_query.from_user.id)
     album_params = await DownloadVk().get_album_attrs(callback_query.from_user.id)
     for a_id, title, size, thumbnail in album_params:
         IK_albums_list = InlineKeyboardMarkup()
