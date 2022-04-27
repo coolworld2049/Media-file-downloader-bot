@@ -347,13 +347,13 @@ class YandexDisk:
             return f'download_file(user_id: {user_id}): ya_upload_completed: 0'
 
     # @profile(stream=fp, precision=4)
-    async def request_upload(self, user_id: int, data: dict, folder_name: str, overwrite: bool = False):
+    async def request_upload_file(self, user_id: int, data: dict, folder_name: str, overwrite: bool = False):
         counter = 0
         subfolder_path = f'{self.ROOT_FOLDER}/{folder_name}'
-        mininterval = len(data)/1000
+        mininterval = len(data) / 1000
         async with clientSession() as session:
-            for url, ext in tqdm(data.items(), mininterval=mininterval, token=os.environ.get("BOT_TOKEN"),
-                                 chat_id=user_id):
+            async for url, ext in tqdm(data.items(), mininterval=mininterval, token=os.environ.get("BOT_TOKEN"),
+                                       chat_id=user_id):
                 try:
                     async with session.post(f"{self.RESOURCES_URL}/upload",
                                             params={
@@ -368,7 +368,7 @@ class YandexDisk:
                                                 'Authorization': f'OAuth {users_db["user"].get(user_id).get("y_api_token")}'
                                             }) as resp:
                         counter += 1
-                        print(f" album: {subfolder_path} | status: {resp.status}")
+                        print(f" user_id: {user_id} | album: {subfolder_path} | status: {resp.status}")
                 except ClientConnectorError:
                     await asyncio.sleep(0.07)
                     continue
@@ -379,6 +379,8 @@ class YandexDisk:
                 "total_number_uploaded_file":
                     users_db["user"].get(user_id).get("total_number_uploaded_file") + counter
             }, pk="user_id")
+        print(f'uploaded {counter}')
+        return counter
 
     # ----processing response from vk api----
 
@@ -417,20 +419,12 @@ class YandexDisk:
                     users_db["user"].get(user_id).get("total_number_uploaded_file") + counter
             }, pk="user_id")"""
 
-            await self.request_upload(user_id, data, folder_name, overwrite)
-
-            if len(data) == users_db["user"].get(user_id).get("total_number_uploaded_file"):
+            if (len(data) / await self.request_upload_file(user_id, data, folder_name, overwrite)) \
+                    < 1.11111111111:
                 users_db["user"].upsert(
                     {
                         "user_id": user_id,
                         "ya_upload_completed": True,
                     }, pk='user_id')
-            else:
-                users_db["user"].upsert(
-                    {
-                        "user_id": user_id,
-                        "ya_upload_completed": False,
-                    }, pk='user_id')
         end = time.perf_counter()
         print(f'\nthe function upload_file(user_id: {user_id}) was completed in {end - start:0.4f} seconds')
-        print(f'uploaded {users_db["user"].get(user_id).get("total_number_uploaded_file")}')
