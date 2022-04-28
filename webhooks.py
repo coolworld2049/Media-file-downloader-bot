@@ -1,4 +1,3 @@
-# webhook settings
 import logging
 
 from aiogram.utils.executor import start_webhook
