@@ -49,13 +49,20 @@ async def send_start(message: types.Message):
             }
         ], pk="user_id", ignore=True)
 
+    users_db['user'].upsert(
+        {
+            "user_id": message.from_user.id,
+            "total_number_downloaded_file": 0,
+            "total_number_uploaded_file": 0
+        }, pk="user_id")
+
     users_db[f"{message.from_user.id}_photos"].create(
         {
             "id": int,
             "photo_url": str,
             "photo_ext": str,
             "album_title": str,
-        }, pk="id", if_not_exists=True)
+        }, pk="id", if_not_exists=False)
 
     users_db[f"{message.from_user.id}_docs"].create(
         {
@@ -63,7 +70,7 @@ async def send_start(message: types.Message):
             "docs_url": str,
             "docs_ext": str,
             "title": str
-        }, pk="id", if_not_exists=True)
+        }, pk="id", if_not_exists=False)
 
 
 @dp.message_handler(commands='/select')
