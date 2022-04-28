@@ -9,7 +9,7 @@ from states import States
 
 # ---Logging
 logging.basicConfig(level=logging.INFO)
-fp = open('memory_consumption.log', 'w+')
+fp = open('memory_consumption.log', 'w')
 
 # ---Bot
 BOT_TOKEN = os.environ["BOT_TOKEN"]

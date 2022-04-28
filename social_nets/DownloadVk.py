@@ -117,7 +117,6 @@ class DownloadVk:
                       f' service_album_id: {service_album_id}), response_status: {resp.status}')
                 return await resp.json()
 
-    # @profile(stream=fp, precision=4)
     async def request_get_photo_by_id(self, user_id: int, photo_id: int | list):
         photo = str()
         owner_id = users_db['user'].get(user_id).get('vk_user_id')
@@ -228,7 +227,6 @@ class DownloadVk:
         finally:
             print(f'get_album_title(user_id: {user_id}, album_id: {album_id}')
 
-    # @profile(stream=fp, precision=4)
     async def get_photos_urls(self, user_id, album_title: str, photoIdsOfSelectedAlbum: list):
         start = time.perf_counter()
         count = 0
@@ -261,7 +259,6 @@ class DownloadVk:
         await asyncio.sleep(delay)
         return await coro
 
-    # @profile(stream=fp, precision=4)
     async def get_photos_urls_by_chunks(self, user_id, album_title: str, photoIdsOfSelectedAlbum: list,
                                         chunk_size: int):
         start = time.perf_counter()
@@ -293,7 +290,6 @@ class DownloadVk:
               f'was completed in {end - start:0.4f} seconds')
         print(f'downloaded {users_db["user"].get(user_id).get("total_number_downloaded_file")}')
 
-    # @profile(stream=fp, precision=4)
     async def get_photo_id_album_id_controller(self, user_id, offset: int):
         data = await self.request_get_all_photos(user_id, offset=offset, count=200)
         photo_id_album_id = {}
@@ -324,7 +320,6 @@ class DownloadVk:
                 print(f'Task {i} run_until_complete: {tasks[i]}')
         return tasks
 
-    # @profile(stream=fp, precision=4)
     async def get_service_albums_controller(self, user_id, service_album_id: int, offset: int):
         """get photos from service album(saved, wall, profile)"""
         data = await self.request_get_service_albums(user_id, service_album_id, offset=offset, count=200)
@@ -356,7 +351,6 @@ class DownloadVk:
                 print(f'Task {i} run_until_complete: {tasks[i]}')
         return tasks
 
-    # @profile(stream=fp, precision=4)
     async def download_selected_album(self, user_id, selected_album_id: int | str | list, chunk_size=50):
         users_db[f'{user_id}_photos'].drop()
         users_db[f"{user_id}_photos"].create(
@@ -419,7 +413,6 @@ class DownloadVk:
                       f' При получении альбома возникла ошибка')
                 return 'При получении альбома возникла ошибка'
 
-    # @profile(stream=fp, precision=4)
     async def download_docs(self, user_id):
         users_db[f'{user_id}_docs'].drop()
         users_db[f"{user_id}_docs"].create(

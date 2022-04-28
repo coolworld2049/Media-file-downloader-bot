@@ -49,7 +49,6 @@ class YandexDisk:
                 return f'Ошибка авторизации: {resp.status} в Яндекс диске!'
 
     @staticmethod
-    # @profile(stream=fp, precision=4)
     async def request_upload_worker(url: str, params: dict, data: str, headers: dict):
         async with clientSession() as session:
             async with session.post(url=url, params=params, data=data, headers=headers):
@@ -60,7 +59,6 @@ class YandexDisk:
         await asyncio.sleep(delay)
         return await coro
 
-    # @profile(stream=fp, precision=4)
     async def multitask_post_requests(self, user_id: int, data: dict, folder_name: str, overwrite: bool = False):
         counter = 0
         subfolder_path = f'{self.ROOT_FOLDER}/{folder_name}'
@@ -72,14 +70,13 @@ class YandexDisk:
                     'path': f'{subfolder_path}/{counter + 1}_file{ext}',
                     'url': url,
                     'fields': 'href',
-                    'overwrite': f'{overwrite}'
-                },
+                    'overwrite': f'{overwrite}'},
                 'data': None,
                 'headers': {
                     'Content-Type': 'application/json',
                     'Accept': 'application/json',
-                    'Authorization': f'OAuth {users_db["user"].get(user_id).get("y_api_token")}'
-                }}
+                    'Authorization': f'OAuth {users_db["user"].get(user_id).get("y_api_token")}'}
+            }
             counter += 1
 
         chunk_size = 10
@@ -106,12 +103,10 @@ class YandexDisk:
 
     # ----yandex disk api requests----
 
-    # @profile(stream=fp, precision=4)
     async def request_create_folder(self, user_id, folder_name):
         status = 0
         count = 0
-        while status != 201:
-            await asyncio.sleep(0.02)
+        while status != 201 or status not in (400, 401, 503, 507):
             async with clientSession() as session:
                 async with session.put(f'{self.RESOURCES_URL}?',
                                        params={
@@ -127,22 +122,23 @@ class YandexDisk:
                     count += 1
                     print(f'user_id: {user_id}. Try create dir "{folder_name}" in cloud storage.'
                           f' Response code: {str(resp.status)}. Message: {await resp.json()}')
-            match status:
-                case 201:
-                    return True
-                case 423:
-                    continue
-                case 404:
-                    await self.request_create_folder(user_id, self.ROOT_FOLDER)
-                case 409:
-                    if folder_name == self.ROOT_FOLDER:
-                        return True
-                    else:
-                        await self.request_delete_folder(user_id, folder_name)
-                case _:
-                    return False
+                    match status:
+                        case 201:
+                            return True
+                        case 423:
+                            continue
+                        case 429:
+                            await asyncio.sleep(0.05)
+                        case 404:
+                            await self.request_create_folder(user_id, self.ROOT_FOLDER)
+                        case 409:
+                            if folder_name == self.ROOT_FOLDER:
+                                return True
+                            else:
+                                await self.request_delete_folder(user_id, folder_name)
+                        case _:
+                            return False
 
-    # @profile(stream=fp, precision=4)
     async def request_delete_folder(self, user_id, folder_name):
         status = 0
         count = 0
@@ -255,7 +251,6 @@ class YandexDisk:
 
     # ----processing response from yandex disk api----
 
-    # @profile(stream=fp, precision=4)
     async def request_upload_file(self, user_id: int, data: dict, folder_name: str, overwrite: bool = False):
         counter = 0
         subfolder_path = f'{self.ROOT_FOLDER}/{folder_name}'
@@ -291,7 +286,6 @@ class YandexDisk:
         print(f'uploaded {counter}')
         return counter
 
-    # @profile(stream=fp, precision=4)
     async def create_directory(self, user_id, folder_name):
         users_db['user'].upsert(
             {
