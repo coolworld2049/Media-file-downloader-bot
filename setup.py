@@ -15,7 +15,7 @@ def set_env_vars():
 
 
 def setup_py():
-    # set_env_vars()
+    set_env_vars()
     with Path('requirements.txt').open('r', encoding='UTF-16') as requirements_txt:
         install_requires = [
             str(requirement)
