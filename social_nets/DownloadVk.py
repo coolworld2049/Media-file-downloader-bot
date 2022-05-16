@@ -12,45 +12,42 @@ from core import users_db
 
 class DownloadVk:
     def __init__(self):
-        self.vk_app_id = 8109852
-        self.vk_api_v = 5.131
-        self.scopes = "photos,docs"
-        self.redirect_uri = 'https://oauth.vk.com/blank.html'
+        self.__vk_app_id__ = 8109852
+        self.__vk_api_v__ = 5.131
+        self.__scopes__ = "photos,docs"
+        self.__redirect_uri__ = 'https://oauth.vk.com/blank.html'
 
     # ----authorization----
 
     @abstractmethod
     def link(self):
         # response_type=code!
-        oAuth_link = f"https://oauth.vk.com/authorize?client_id={self.vk_app_id}&display=page&" \
-                     f"redirect_uri={self.redirect_uri}" \
-                     f"&scope={self.scopes}&revoke=1&response_type=code&v={self.vk_api_v}"
+        oAuth_link = f"https://oauth.vk.com/authorize?client_id={self.__vk_app_id__}&display=page&" \
+                     f"__redirect_uri__={self.__redirect_uri__}" \
+                     f"&scope={self.__scopes__}&revoke=1&response_type=code&v={self.__vk_api_v__}"
 
         return oAuth_link
 
     @abstractmethod
     async def auth(self, user_id, vk_response: str):
         split_link = vk_response.split('#').copy()
-        if split_link[0] == 'https://oauth.vk.com/blank.html':
+        if split_link[0] == self.__redirect_uri__:
             code = split_link[1].split('=')[-1:][0]
-
             async with clientSession() as session:
                 async with session.get('https://oauth.vk.com/access_token',
                                        params={
-                                           'client_id': self.vk_app_id,
+                                           'client_id': self.__vk_app_id__,
                                            'client_secret': os.environ.get('vk_app_secret'),
-                                           'redirect_uri': self.redirect_uri,
+                                           '__redirect_uri__': self.__redirect_uri__,
                                            'code': code
                                        }) as resp:
                     get_access_token = await resp.json()
-
             if get_access_token['access_token']:
                 users_db["user"].upsert(
                     {
                         "user_id": user_id,
                         "vk_token": get_access_token['access_token'],
                         "vk_user_id": get_access_token['user_id'],
-                        "vk_token_expires_in": get_access_token['expires_in'],
                         "vk_user_authorized": True,
                     }, pk='user_id')
                 return 'Вы успешно авторизовались в VK!'
@@ -67,7 +64,7 @@ class DownloadVk:
                                        params={
                                            'access_token': os.environ.get('vk_app_service'),
                                            'token': users_db['user'].get(user_id).get('vk_token'),
-                                           'v': self.vk_api_v
+                                           'v': self.__vk_api_v__
                                        }) as resp:
                     check = await resp.json()
                     try:
@@ -95,7 +92,7 @@ class DownloadVk:
                                        'offset': offset,
                                        'count': count,
                                        'photo_sizes': 1,
-                                       'v': self.vk_api_v
+                                       'v': self.__vk_api_v__
                                    }) as resp:
                 print(f'request_get_all_photos(user_id: {user_id}): offset: {offset}, count: {count},'
                       f' response_status: {resp.status}')
@@ -111,7 +108,7 @@ class DownloadVk:
                                        'offset': offset,
                                        'count': count,
                                        'photo_sizes': 1,
-                                       'v': self.vk_api_v
+                                       'v': self.__vk_api_v__
                                    }) as resp:
                 print(f'request_get_service_albums(user_id: {user_id}): offset: {offset}, count: {count},'
                       f' service_album_id: {service_album_id}), response_status: {resp.status}')
@@ -132,7 +129,7 @@ class DownloadVk:
                                            'access_token':
                                                users_db['user'].get(user_id).get('vk_token'),
                                            'photos': photo,
-                                           'v': self.vk_api_v
+                                           'v': self.__vk_api_v__
                                        }) as resp:
                     return await resp.json()
         except clientConnectorError as ke:
@@ -147,7 +144,7 @@ class DownloadVk:
                                        'access_token': users_db['user'].get(user_id).get('vk_token'),
                                        'user_id': users_db['user'].get(user_id).get('vk_user_id'),
                                        'need_system': 1,
-                                       'v': self.vk_api_v
+                                       'v': self.__vk_api_v__
                                    }) as resp:
                 print(f'request_get_albums(user_id: {user_id}): response_status: {resp.status}')
                 return await resp.json()
@@ -158,7 +155,7 @@ class DownloadVk:
             async with session.get("https://api.vk.com/method/docs.get",
                                    params={
                                        'access_token': users_db['user'].get(user_id).get('vk_token'),
-                                       'v': self.vk_api_v
+                                       'v': self.__vk_api_v__
                                    }) as resp:
                 print(f'request_get_docs(user_id: {user_id}): response_status: {resp.status}')
                 return await resp.json()
@@ -227,7 +224,7 @@ class DownloadVk:
         finally:
             print(f'get_album_title(user_id: {user_id}, album_id: {album_id}')
 
-    async def get_photos_urls(self, user_id, album_title: str, photoIdsOfSelectedAlbum: list):
+    async def __get_photos_urls(self, user_id, album_title: str, photoIdsOfSelectedAlbum: list):
         start = time.perf_counter()
         count = 0
         data = await self.request_get_photo_by_id(user_id, photoIdsOfSelectedAlbum)
@@ -255,18 +252,18 @@ class DownloadVk:
         print(f'downloaded {users_db["user"].get(user_id).get("total_number_downloaded_file")}')
 
     @staticmethod
-    async def wrapper(delay, coro):
+    async def __wrapper__(delay, coro):
         await asyncio.sleep(delay)
         return await coro
 
-    async def get_photos_urls_by_chunks(self, user_id, album_title: str, photoIdsOfSelectedAlbum: list,
-                                        chunk_size: int):
+    async def __get_photos_urls_by_chunks(self, user_id, album_title: str, photoIdsOfSelectedAlbum: list,
+                                          chunk_size: int):
         start = time.perf_counter()
         count = 0
         chunked_list = [photoIdsOfSelectedAlbum[i:i + chunk_size]
                         for i in range(0, len(photoIdsOfSelectedAlbum), chunk_size)]
         async for index in tqdm(range(len(chunked_list)), token=os.environ.get("BOT_TOKEN"), chat_id=user_id):
-            data = await DownloadVk().wrapper(0.3, self.request_get_photo_by_id(user_id, chunked_list[index]))
+            data = await DownloadVk().__wrapper__(0.3, self.request_get_photo_by_id(user_id, chunked_list[index]))
             for item in data['response']:
                 users_db[f"{user_id}_photos"].insert_all(
                     [
@@ -290,7 +287,7 @@ class DownloadVk:
               f'was completed in {end - start:0.4f} seconds')
         print(f'downloaded {users_db["user"].get(user_id).get("total_number_downloaded_file")}')
 
-    async def get_photo_id_album_id_controller(self, user_id, offset: int):
+    async def __get_photo_id_album_id_controller(self, user_id, offset: int):
         data = await self.request_get_all_photos(user_id, offset=offset, count=200)
         photo_id_album_id = {}
         try:
@@ -300,15 +297,15 @@ class DownloadVk:
         except KeyError:
             return data.items()
 
-    async def get_photo_id_album_id_worker(self, user_id):
+    async def __get_photo_id_album_id_worker(self, user_id):
         f_req = await self.request_get_all_photos(user_id)
         tasks = []
         tasks_per_sec = 3 + 1  # limit 5
         nest_asyncio.apply()
         loop = asyncio.get_running_loop()
         for offset in range(0, f_req["response"]["count"], 200):
-            tasks.append(loop.create_task(self.wrapper(
-                0.03, self.get_photo_id_album_id_controller(user_id, offset))))
+            tasks.append(loop.create_task(
+                self.__wrapper__(0.03, self.__get_photo_id_album_id_controller(user_id, offset))))
             task_num = offset // 200
             if ((task_num / (tasks_per_sec - 1)) % 2) == 0:
                 print(f'Task {task_num} sleep(1.02)')
@@ -320,7 +317,7 @@ class DownloadVk:
                 print(f'Task {i} run_until_complete: {tasks[i]}')
         return tasks
 
-    async def get_service_albums_controller(self, user_id, service_album_id: int, offset: int):
+    async def __get_service_albums_controller(self, user_id, service_album_id: int, offset: int):
         """get photos from service album(saved, wall, profile)"""
         data = await self.request_get_service_albums(user_id, service_album_id, offset=offset, count=200)
         photo_id_service_album_id = {}
@@ -331,15 +328,15 @@ class DownloadVk:
         except KeyError:
             return data.items()
 
-    async def get_service_albums_worker(self, user_id, service_album_id: int):
+    async def __get_service_albums_worker(self, user_id, service_album_id: int):
         alb_c = await self.get_album_id(user_id)
         tasks = []
         tasks_per_sec = 3 + 1  # limit 5
         nest_asyncio.apply()
         loop = asyncio.get_running_loop()
         for offset in range(0, len(alb_c), 200):
-            tasks.append(loop.create_task(self.wrapper(
-                0.03, self.get_service_albums_controller(user_id, service_album_id, offset))))
+            tasks.append(loop.create_task(
+                self.__wrapper__(0.03, self.__get_service_albums_controller(user_id, service_album_id, offset))))
             task_num = offset // 200
             if ((task_num / (tasks_per_sec - 1)) % 2) == 0:
                 print(f'Task {task_num} sleep(1.02)')
@@ -374,21 +371,20 @@ class DownloadVk:
             match type(selected_album_id).__name__:
                 case 'int':
                     photoIdsOfSelectedAlbum = [key for res in
-                                               await self.get_photo_id_album_id_worker(user_id)
+                                               await self.__get_photo_id_album_id_worker(user_id)
                                                for key, value in res.result()
                                                if value == selected_album_id]
                 case 'str':
                     photoIdsOfSelectedAlbum = [key for res in
-                                               await self.get_service_albums_worker(
-                                                   user_id, selected_album_id)
+                                               await self.__get_service_albums_worker(user_id, selected_album_id)
                                                for key, value in res.result()
                                                if str(value) == selected_album_id]
                     album_title = 'Saved photos'
                 case 'list':
                     photoIdsOfSelectedAlbum = [key for res in
-                                               await self.get_photo_id_album_id_worker(user_id)
+                                               await self.__get_photo_id_album_id_worker(user_id)
                                                for key, value in res.result()]
-                    photoIdsOfSelectedAlbum += [await self.get_service_albums_worker(user_id, album_id)
+                    photoIdsOfSelectedAlbum += [await self.__get_service_albums_worker(user_id, album_id)
                                                 for album_id in await self.get_album_id(user_id)]
                     album_title = 'All photos'
 
@@ -396,17 +392,16 @@ class DownloadVk:
             print(f'user_id: {user_id}. photoIdsOfSelectedAlbum.append(key)'
                   f' was completed in {end_get_all_photos - start_get_all_photos:0.4f} seconds')
 
-            if photoIdsOfSelectedAlbum:
-                if len(photoIdsOfSelectedAlbum) >= chunk_size:
-                    await self.get_photos_urls_by_chunks(user_id, album_title, photoIdsOfSelectedAlbum, chunk_size)
-                else:
-                    await DownloadVk().get_photos_urls(user_id, album_title, photoIdsOfSelectedAlbum)
-                if users_db[f"{user_id}_photos"].count > 0:
-                    users_db['user'].upsert(
-                        {
-                            "user_id": user_id,
-                            "vk_photo_download_completed": True,
-                        }, pk="user_id")
+            if photoIdsOfSelectedAlbum and len(photoIdsOfSelectedAlbum) >= chunk_size:
+                await self.__get_photos_urls_by_chunks(user_id, album_title, photoIdsOfSelectedAlbum, chunk_size)
+            else:
+                await DownloadVk().__get_photos_urls(user_id, album_title, photoIdsOfSelectedAlbum)
+            if users_db[f"{user_id}_photos"].count > 0:
+                users_db['user'].upsert(
+                    {
+                        "user_id": user_id,
+                        "vk_photo_download_completed": True,
+                    }, pk="user_id")
             else:
                 print(f'user_id: {user_id}. download_selected_album(user_id: {user_id},'
                       f' selected_album_id: {selected_album_id}.'

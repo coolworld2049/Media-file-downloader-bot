@@ -6,15 +6,13 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeybo
 
 from cloud_storage.YandexDisk import YandexDisk
 from core import dp, bot, MyStates, users_db
+from handlers.start_handler import send_start
 from social_nets.DownloadVk import DownloadVk
 
 
 def register_handlers_vk(dispatcher: Dispatcher):
-    dispatcher.register_callback_query_handler(callback_button_vk, lambda c: c.data == 'buttonVk')
+    dispatcher.register_callback_query_handler(callback_auth_vk, lambda c: c.data == 'buttonVk')
     dispatcher.register_message_handler(message_auth_vk, state=MyStates.auth_vk)
-    dispatcher.register_message_handler(callback_select_storage, state=MyStates.select_storage)
-    dispatcher.register_callback_query_handler(callback_auth_ya_disk, lambda c: c.data == 'auth_ya_disk')
-    dispatcher.register_message_handler(message_auth_ya_disk, state=MyStates.auth_ya_disk)
     dispatcher.register_message_handler(message_select_vk_scope, state=MyStates.select_vk_scope)
     dispatcher.register_callback_query_handler(callback_display_albums_list, lambda c: c.data == 'photos')
     dispatcher.register_callback_query_handler(callback_save_album, state=MyStates.save_album)
@@ -22,14 +20,16 @@ def register_handlers_vk(dispatcher: Dispatcher):
 
 
 @dp.callback_query_handler(lambda c: c.data == 'buttonVk')
-async def callback_button_vk(callback_query: types.CallbackQuery):
+async def callback_auth_vk(callback_query: types.CallbackQuery):
     if not users_db['user'].get(callback_query.from_user.id).get('vk_user_authorized') \
             or not await DownloadVk().check_token(callback_query.from_user.id):
         IK_button_vk = InlineKeyboardMarkup()
         IK_button_vk.add(InlineKeyboardButton('Авторизация в VK', url=DownloadVk().link()))
         await bot.send_message(callback_query.from_user.id,
-                               text=f'Для загрузки данных из вашего аккаунта требуется авторизация'
-                                    f' Нажмите на кнопку и перешлите URL АДРЕС боту',
+                               text=f'Для загрузки фото и документов из вашего аккаунта'
+                                    f' необходима авторизация. Нажмите на кнопку и перешлите'
+                                    f' URL адрес боту. Боту будут доступны ваши личные данные,'
+                                    f' фотографии и файлы.',
                                reply_markup=IK_button_vk)
         await MyStates.auth_vk.set()  # start FSM machine. state: waiting for user message
     else:
@@ -37,6 +37,12 @@ async def callback_button_vk(callback_query: types.CallbackQuery):
         RK_goto_select_album.add(KeyboardButton('Далее'))
         await bot.send_message(callback_query.from_user.id, text=f'Вы авторизованы в VK!',
                                reply_markup=RK_goto_select_album)
+        users_db[f"{callback_query.from_user.id}_calls"].insert(
+            {
+                "id": 0,
+                "settable_state": MyStates.select_storage.state.split(':')[-1],
+                "call_from": callback_auth_vk.__name__
+            }, pk="id", replace=True)
         await MyStates.select_storage.set()
 
 
@@ -45,81 +51,36 @@ async def message_auth_vk(message: types.Message, state: FSMContext):
     async with state.proxy() as data:  # set the wait state
         data['auth_vk'] = message.text
         vk_auth_msg = await DownloadVk().auth(message.from_user.id, data['auth_vk'])  # auth
-        await bot.send_message(message.from_user.id, vk_auth_msg)  # auth result
 
+        await bot.send_message(message.from_user.id, vk_auth_msg)  # auth result
         # actions after vk authorization
         if users_db['user'].get(message.from_user.id).get('vk_user_authorized'):
-            await state.finish()
             RK_goto_select_album = ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
             RK_goto_select_album.add(KeyboardButton('Далее'))
             await bot.send_message(message.from_user.id, text=f'Далее',
                                    reply_markup=RK_goto_select_album)
-            await MyStates.select_storage.set()
-        else:
-            await MyStates.auth_vk.set()
-
-
-@dp.callback_query_handler(state=MyStates.select_storage)
-async def callback_select_storage(callback_query: types.CallbackQuery, state: FSMContext):
-    await state.finish()
-    if users_db['user'].get(callback_query.from_user.id).get('vk_user_authorized'):
-        IK_select_storage = InlineKeyboardMarkup()
-        IK_select_storage.add(
-            InlineKeyboardButton('Yandex Disk', callback_data='auth_ya_disk'),
-            InlineKeyboardButton('Google Disk', callback_data='auth_g_drive'),
-            InlineKeyboardButton('Uploadgram', callback_data='uploadgram'))
-
-        await bot.send_message(callback_query.from_user.id,
-                               text='Выберите место куда необходимо загрузить ваши файлы',
-                               reply_markup=IK_select_storage)
-
-
-@dp.callback_query_handler(lambda c: c.data == 'auth_ya_disk')
-async def callback_auth_ya_disk(callback_query: types.CallbackQuery):
-    if not users_db['user'].get(callback_query.from_user.id).get('ya_user_authorized'):
-        IK_ya_auth = InlineKeyboardMarkup()
-        IK_ya_auth.add(InlineKeyboardButton('Авторизация в Yandex Disk', url=YandexDisk().link()))
-        await bot.send_message(callback_query.from_user.id,
-                               text='Данные будут загружены в отдельную папку'
-                                    ' в вашем облачном хранилище Yandex Disk.'
-                                    ' Для авторизации нажмите на кнопку и перешлите'
-                                    ' полученный КОД боту',
-                               reply_markup=IK_ya_auth)
-        await MyStates.auth_ya_disk.set()
-    else:
-        await bot.send_message(callback_query.from_user.id, text=f'Вы уже авторизовались в Yandex Disk!')
-        await bot.send_message(callback_query.from_user.id,
-                               text='Перейти к выбору области загрузки',
-                               reply_markup=goto_select_vk_scope())
-        await MyStates.select_vk_scope.set()
-
-
-@dp.message_handler(state=MyStates.auth_ya_disk)
-async def message_auth_ya_disk(message: types.Message, state: FSMContext):
-    if not users_db['user'].get(message.from_user.id).get('ya_user_authorized'):
-        async with state.proxy() as data:  # set the wait state
-            data['token_ya_disk'] = message.text
-        ya_auth_msg = await YandexDisk().auth(message.from_user.id, data['token_ya_disk'])  # auth
-        await bot.send_message(message.from_user.id, ya_auth_msg)  # auth result
-
-        # actions after vk and ya disk authorization
-        if users_db['user'].get(message.from_user.id).get('ya_user_authorized') \
-                and users_db['user'].get(message.from_user.id).get('ya_user_authorized'):
-            await bot.send_message(message.from_user.id,
-                                   text=f'Теперь вы можете посмотреть что можно'
-                                        f' скачать из вашего аккаунта.',
-                                   reply_markup=goto_select_vk_scope())
+            users_db['user'].upsert(
+                {
+                    "user_id": message.from_user.id,
+                    "auth_attempts": 3
+                }, pk="user_id")
+            users_db[f"{message.from_user.id}_calls"].insert(
+                {
+                    "id": 0,
+                    "settable_state": MyStates.select_storage.state.split(':')[-1],
+                    "call_from": callback_auth_vk.__name__
+                }, pk="id", replace=True)
             await state.finish()
-            await MyStates.select_vk_scope.set()  # go to downloading from vk
+            await MyStates.select_storage.set()
+        elif users_db['user'].get(message.from_user.id).get('auth_attempts') <= 0:
+            await state.finish()
+            await send_start(message)
         else:
-            await MyStates.auth_ya_disk.set()
-    else:
-        await state.finish()
-        await bot.send_message(message.from_user.id, text=f'Вы уже авторизовались в Yandex Disk!')
-        await bot.send_message(message.from_user.id,
-                               text='Перейти к выбору области загрузки',
-                               reply_markup=goto_select_vk_scope())
-        await MyStates.select_vk_scope.set()
+            users_db['user'].upsert(
+                {
+                    "user_id": message.from_user.id,
+                    "auth_attempts": users_db['user'].get(message.from_user.id).get('auth_attempts') - 1
+                }, pk="user_id")
 
 
 @dp.message_handler(state=MyStates.select_vk_scope)
@@ -128,7 +89,7 @@ async def message_select_vk_scope(message: types.Message, state: FSMContext):
     if await DownloadVk().check_token(message.from_user.id):
         # display scopes list
         IK_scopes_list = InlineKeyboardMarkup()
-        scopes_list = DownloadVk().scopes.split(',')
+        scopes_list = DownloadVk().__scopes__.split(',')
         IK_scopes_list.add(InlineKeyboardButton(emoji.emojize(scopes_list[0] + ' :bridge_at_night:'),
                                                 callback_data=scopes_list[0]))
         IK_scopes_list.add(InlineKeyboardButton(emoji.emojize(scopes_list[1] + ' :page_facing_up:'),
@@ -136,9 +97,9 @@ async def message_select_vk_scope(message: types.Message, state: FSMContext):
         await bot.send_message(message.from_user.id, 'Выберите что необходимо скачать',
                                reply_markup=IK_scopes_list)
     else:
-        await bot.send_message(message.from_user.id, 'Истекло время действия ключа доступа.'
-                                                     ' Необходимо авторизоваться заново')
-        await MyStates.auth_vk.set()
+        await bot.send_message(message.from_user.id, 'Истекло время действия ключа доступа или вы '
+                                                     'не авторизованы. Необходимо авторизоваться заново')
+        await send_start(message)
 
 
 def goto_select_vk_scope():
@@ -169,10 +130,6 @@ async def callback_display_albums_list(callback_query: types.CallbackQuery):
     await bot.send_message(callback_query.from_user.id,
                            text=f'Также можно скачать все фотографии с аккаунта',
                            reply_markup=IK_actions)
-    await bot.send_message(callback_query.from_user.id,
-                           text=f'Внимание! Повторяющиеся фотографии будут удалены из списка загрузки.'
-                                f' Поэтому количество скачанных фотографий может отличаться от'
-                                f' их количества в альбоме')
     await MyStates.save_album.set()
 
 
