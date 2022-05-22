@@ -125,7 +125,7 @@ class YandexDisk:
                         status = resp.status
                         count += 1
                         logger.info(f'user_id: {user_id}. Try create dir "{folder_name}" in cloud storage.'
-                                     f' Response code: {str(resp.status)}. Message: {await resp.json()}')
+                                    f' Response code: {str(resp.status)}. Message: {await resp.json()}')
                         match status:
                             case 201:
                                 return True
@@ -170,7 +170,7 @@ class YandexDisk:
                         status = resp.status
                         count += 1
                         logger.info(f'user_id: {user_id}. Try delete dir "{folder_name}" in cloud storage.'
-                                     f' Response code: {str(resp.status)}. Message: {await resp.json()}')
+                                    f' Response code: {str(resp.status)}. Message: {await resp.json()}')
                 match status:
                     case 200 | 202 | 204:
                         return True
@@ -198,7 +198,7 @@ class YandexDisk:
                                                'Authorization': f'OAuth {users_db["user"].get(user_id).get("y_api_token")}'
                                            }) as put_resp:
                         logger.info(f'user_id: {user_id}. Publish folder: {self.__ROOT_FOLDER__}/{folder_name}.'
-                                     f' Response: {put_resp.status}')
+                                    f' Response: {put_resp.status}')
 
             except KeyError as ke:
                 logger.info(f'get_link_file(user_id: {user_id}) KeyError' + str(ke.args))
@@ -229,7 +229,7 @@ class YandexDisk:
                                        'Authorization': f'OAuth {users_db["user"].get(user_id).get("y_api_token")}'
                                    }) as resp:
                 logger.info(f'user_id: {user_id}. Get published folder: {self.__ROOT_FOLDER__}/{folder_name}.'
-                             f' Response: {resp.status}')
+                            f' Response: {resp.status}')
                 if resp.status == 200:
                     return await resp.json()
                 else:
@@ -251,7 +251,7 @@ class YandexDisk:
                                                'Authorization': f'OAuth {users_db["user"].get(user_id).get("y_api_token")}'
                                            }) as resp:
                         logger.info(f'user_id: {user_id}. Download folder: {self.__ROOT_FOLDER__}/{folder_name}.'
-                                     f' Response: {resp.status}')
+                                    f' Response: {resp.status}')
 
             except KeyError as ke:
                 logger.info(f'download_file(user_id: {user_id}) KeyError' + str(ke.args))
@@ -317,7 +317,7 @@ class YandexDisk:
                                                   recreate_folder):
                 end_create_dir = time.perf_counter()
                 logger.info(f'user_id: {user_id}. Directory creation was done in '
-                             f'{end_create_dir - start_create_dir:0.4f} seconds')
+                            f'{end_create_dir - start_create_dir:0.4f} seconds')
                 return True
 
     async def upload_file(self, user_id: int, data: dict | TextIO, folder_name: str, overwrite: bool = False,
