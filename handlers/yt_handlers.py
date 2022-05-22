@@ -1,13 +1,10 @@
 import os
 
-import aiohttp
-import emoji
 from aiogram import types, Dispatcher
 from aiogram.dispatcher import FSMContext
-from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
 from cloud_storage.Uploadgram import Uploadgram
-from core import MyStates, dp, bot, bot_agent, users_db
+from core import dp, MyStates, bot, users_db
 from social_nets.DownloadYt import DownloadYt
 
 

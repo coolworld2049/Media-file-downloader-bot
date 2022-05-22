@@ -4,14 +4,16 @@ from pathlib import Path
 from pkg_resources import parse_requirements
 from setuptools import setup, find_packages
 
+from core import logger
+
 
 def set_env_vars():
-    os.environ.setdefault('BOT_TOKEN', '')
-    os.environ.setdefault('DEVELOPER_KEY', '')
-    os.environ.setdefault('vk_app_secret', '')
-    os.environ.setdefault('vk_app_service', '')
-    os.environ.setdefault('ya_client_id', '')
-    os.environ.setdefault('ya_client_secret', '')
+    os.environ['BOT_TOKEN'] = ''
+    os.environ['DEVELOPER_KEY'] = ''
+    os.environ['vk_app_secret'] = ''
+    os.environ['vk_app_service'] = ''
+    os.environ['ya_client_id'] = ''
+    os.environ['ya_client_secret'] = ''
 
 
 def setup_py():
@@ -21,7 +23,7 @@ def setup_py():
             str(requirement)
             for requirement in parse_requirements(requirements_txt.readlines())
         ]
-        print(install_requires)
+        logger.debug(install_requires)
     setup(
         name='setup.py',
         version='1.0.0',
