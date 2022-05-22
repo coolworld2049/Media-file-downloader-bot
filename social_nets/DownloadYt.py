@@ -1,6 +1,6 @@
-from yt_dlp import YoutubeDL
+from concurrent.futures import ThreadPoolExecutor
 
-from core import bot
+from yt_dlp import YoutubeDL
 
 
 class DownloadYt:
@@ -31,9 +31,10 @@ class DownloadYt:
         }
         return message
         """
-        if yt_dlp.download([url]) == 0:
+        with ThreadPoolExecutor() as executor:
+            executor.map(yt_dlp.download([url]))
+            # executor.shutdown()
+            # executor.shutdown()
             with yt_dlp:
                 result = yt_dlp.extract_info(url, download=False)
-            return f'temp/member videos/{result["title"]}{self.ext}'
-        else:
-            return False
+                return f'temp/member videos/{result["title"]}{self.ext}'

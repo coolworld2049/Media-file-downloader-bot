@@ -8,7 +8,7 @@ import nest_asyncio
 from aiohttp import ClientSession as clientSession, ClientConnectorError
 from tqdm.contrib.telegram import tqdm
 
-from core import users_db
+from core import users_db, logger
 
 
 class YandexDisk:
@@ -95,12 +95,14 @@ class YandexDisk:
                           chat_id=user_id):
                 for ch_items in list_of_chunks[i]:
                     tasks.append(loop.create_task(
-                        self.__wrapper(0.03, self.__request_upload_worker(ch_items['url'], ch_items['params'],
-                                                                          ch_items['data'], ch_items['headers']))))
+                        self.__wrapper(0.03, self.__request_upload_worker(ch_items['url'],
+                                                                          ch_items['params'],
+                                                                          ch_items['data'],
+                                                                          ch_items['headers']))))
                 await asyncio.sleep(1.1)
                 for k in range(len(tasks)):
-                    loop.run_until_complete(tasks[i])
-                    print(f'Task {k} run_until_complete: {tasks[k]}')
+                    await tasks[i]
+                    logger.info(f'user_id {user_id}. Task {i} await: {tasks[i]}')
 
     # ----yandex disk api requests----
 
@@ -108,68 +110,78 @@ class YandexDisk:
         status = 0
         count = 0
         while status != 201 or status not in (400, 401, 503, 507):
-            async with clientSession() as session:
-                async with session.put(f'{self.__RESOURCES_URL__}?',
-                                       params={
-                                           'path': folder_name
-                                       },
-                                       data=None,
-                                       headers={
-                                           'Content-Type': 'application/json',
-                                           'Accept': 'application/json',
-                                           'Authorization': f'OAuth {users_db["user"].get(user_id).get("y_api_token")}'
-                                       }) as resp:
-                    status = resp.status
-                    count += 1
-                    print(f'user_id: {user_id}. Try create dir "{folder_name}" in cloud storage.'
-                          f' Response code: {str(resp.status)}. Message: {await resp.json()}')
-                    match status:
-                        case 201:
-                            return True
-                        case 423:
-                            continue
-                        case 429:
-                            await asyncio.sleep(0.05)
-                        case 404:
-                            await self.__request_create_folder(user_id, self.__ROOT_FOLDER__,
-                                                               recreate_folder)
-                        case 409:
-                            if folder_name == self.__ROOT_FOLDER__:
+            try:
+                async with clientSession() as session:
+                    async with session.put(f'{self.__RESOURCES_URL__}?',
+                                           params={
+                                               'path': folder_name
+                                           },
+                                           data=None,
+                                           headers={
+                                               'Content-Type': 'application/json',
+                                               'Accept': 'application/json',
+                                               'Authorization': f'OAuth {users_db["user"].get(user_id).get("y_api_token")}'
+                                           }) as resp:
+                        status = resp.status
+                        count += 1
+                        logger.info(f'user_id: {user_id}. Try create dir "{folder_name}" in cloud storage.'
+                                     f' Response code: {str(resp.status)}. Message: {await resp.json()}')
+                        match status:
+                            case 201:
                                 return True
-                            elif not recreate_folder:
-                                return True
-                            else:
-                                await self.__request_delete_folder(user_id, folder_name)
-                        case _:
-                            return False
+                            case 423:
+                                continue
+                            case 429:
+                                await asyncio.sleep(0.05)
+                            case 404:
+                                await self.__request_create_folder(user_id, self.__ROOT_FOLDER__,
+                                                                   recreate_folder)
+                            case 409:
+                                if folder_name == self.__ROOT_FOLDER__:
+                                    return True
+                                elif not recreate_folder:
+                                    return True
+                                else:
+                                    await self.__request_delete_folder(user_id, folder_name)
+                            case _:
+                                return False
+            except ClientConnectorError as cce:
+                logger.info(f'__request_create_folder(user_id: {user_id}) ClientConnectorError' + str(cce.args))
+                await asyncio.sleep(0.1)
+                continue
 
     async def __request_delete_folder(self, user_id, folder_name):
         status = 0
         count = 0
         while status != 200 or 202 or 204:
-            await asyncio.sleep(0.05)
-            async with clientSession() as session:
-                async with session.delete(f'{self.__RESOURCES_URL__}?',
-                                          params={
-                                              'path': f'{folder_name}',
-                                              'permanently': 'True'
-                                          },
-                                          headers={
-                                              'Content-Type': 'application/json',
-                                              'Accept': 'application/json',
-                                              'Authorization': f'OAuth {users_db["user"].get(user_id).get("y_api_token")}'
-                                          }) as resp:
-                    status = resp.status
-                    count += 1
-                    print(f'user_id: {user_id}. Try delete dir "{folder_name}" in cloud storage.'
-                          f' Response code: {str(resp.status)}. Message: {await resp.json()}')
-            match status:
-                case 200 | 202 | 204:
-                    return True
-                case 423:
-                    continue
-                case _:
-                    return False
+            try:
+                await asyncio.sleep(0.05)
+                async with clientSession() as session:
+                    async with session.delete(f'{self.__RESOURCES_URL__}?',
+                                              params={
+                                                  'path': f'{folder_name}',
+                                                  'permanently': 'True'
+                                              },
+                                              headers={
+                                                  'Content-Type': 'application/json',
+                                                  'Accept': 'application/json',
+                                                  'Authorization': f'OAuth {users_db["user"].get(user_id).get("y_api_token")}'
+                                              }) as resp:
+                        status = resp.status
+                        count += 1
+                        logger.info(f'user_id: {user_id}. Try delete dir "{folder_name}" in cloud storage.'
+                                     f' Response code: {str(resp.status)}. Message: {await resp.json()}')
+                match status:
+                    case 200 | 202 | 204:
+                        return True
+                    case 423:
+                        continue
+                    case _:
+                        return False
+            except ClientConnectorError as cce:
+                logger.info(f'__request_delete_folder(user_id: {user_id}) ClientConnectorError' + str(cce.args))
+                await asyncio.sleep(0.1)
+                continue
 
     async def request_publish(self, user_id, folder_name: str):
         if users_db["user"].get(user_id).get("ya_upload_completed"):
@@ -185,11 +197,11 @@ class YandexDisk:
                                                'Accept': 'application/json',
                                                'Authorization': f'OAuth {users_db["user"].get(user_id).get("y_api_token")}'
                                            }) as put_resp:
-                        print(f'user_id: {user_id}. Publish folder: {self.__ROOT_FOLDER__}/{folder_name}.'
-                              f' Response: {put_resp.status}')
+                        logger.info(f'user_id: {user_id}. Publish folder: {self.__ROOT_FOLDER__}/{folder_name}.'
+                                     f' Response: {put_resp.status}')
 
             except KeyError as ke:
-                print(f'get_link_file(user_id: {user_id}) KeyError' + str(ke.args))
+                logger.info(f'get_link_file(user_id: {user_id}) KeyError' + str(ke.args))
                 return f'get_link_file() KeyError {ke.args}'
             finally:
                 published = await self.__request_public(user_id, folder_name)
@@ -216,8 +228,8 @@ class YandexDisk:
                                        'Accept': 'application/json',
                                        'Authorization': f'OAuth {users_db["user"].get(user_id).get("y_api_token")}'
                                    }) as resp:
-                print(f'user_id: {user_id}. Get published folder: {self.__ROOT_FOLDER__}/{folder_name}.'
-                      f' Response: {resp.status}')
+                logger.info(f'user_id: {user_id}. Get published folder: {self.__ROOT_FOLDER__}/{folder_name}.'
+                             f' Response: {resp.status}')
                 if resp.status == 200:
                     return await resp.json()
                 else:
@@ -238,12 +250,15 @@ class YandexDisk:
                                                'Accept': 'application/json',
                                                'Authorization': f'OAuth {users_db["user"].get(user_id).get("y_api_token")}'
                                            }) as resp:
-                        print(f'user_id: {user_id}. Download folder: {self.__ROOT_FOLDER__}/{folder_name}.'
-                              f' Response: {resp.status}')
+                        logger.info(f'user_id: {user_id}. Download folder: {self.__ROOT_FOLDER__}/{folder_name}.'
+                                     f' Response: {resp.status}')
 
             except KeyError as ke:
-                print(f'download_file(user_id: {user_id}) KeyError' + str(ke.args))
+                logger.info(f'download_file(user_id: {user_id}) KeyError' + str(ke.args))
                 return f'download_file() KeyError {ke.args}'
+            except ClientConnectorError as cce:
+                logger.info(f'download_file(user_id: {user_id}) ClientConnectorError' + str(cce.args))
+                return f'download_file() ClientConnectorError {cce.args}'
             finally:
                 href = await resp.json()
                 if resp.status == 200:
@@ -276,7 +291,7 @@ class YandexDisk:
                                                 'Authorization': f'OAuth {users_db["user"].get(user_id).get("y_api_token")}'
                                             }) as resp:
                         counter += 1
-                        print(f" user_id: {user_id} | album: {subfolder_path} | status: {resp.status}")
+                        logger.info(f" user_id: {user_id} | album: {subfolder_path} | status: {resp.status}")
                 except ClientConnectorError:
                     await asyncio.sleep(0.07)
                     continue
@@ -287,7 +302,7 @@ class YandexDisk:
                 "total_number_uploaded_file":
                     users_db["user"].get(user_id).get("total_number_uploaded_file") + counter
             }, pk="user_id")
-        print(f'uploaded {counter}')
+        logger.info(f'uploaded {counter}')
         return counter
 
     async def __create_directory(self, user_id, folder_name, recreate_folder):
@@ -301,8 +316,8 @@ class YandexDisk:
             if await self.__request_create_folder(user_id, f'{self.__ROOT_FOLDER__}/{folder_name}',
                                                   recreate_folder):
                 end_create_dir = time.perf_counter()
-                print(f'user_id: {user_id}. Directory creation was done in '
-                      f'{end_create_dir - start_create_dir:0.4f} seconds')
+                logger.info(f'user_id: {user_id}. Directory creation was done in '
+                             f'{end_create_dir - start_create_dir:0.4f} seconds')
                 return True
 
     async def upload_file(self, user_id: int, data: dict | TextIO, folder_name: str, overwrite: bool = False,
@@ -328,4 +343,4 @@ class YandexDisk:
             pass
 
         end = time.perf_counter()
-        print(f'\nthe function upload_file(user_id: {user_id}) was completed in {end - start:0.4f} seconds')
+        logger.info(f'upload_file(user_id: {user_id}) was completed in {end - start:0.4f} seconds')

@@ -4,7 +4,7 @@ import emoji
 from aiogram import types, Dispatcher
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, User
 
-from core import dp, bot, users_db
+from core import dp, bot, users_db, logger
 from db.export_table import export_csv
 
 
@@ -53,13 +53,6 @@ async def add_user_to_db(user: User):
             "auth_attempts": 3
         }, pk="user_id")
 
-    users_db[f"{user.id}_bot_member_files"].drop(ignore=True)
-    users_db[f"{user.id}_bot_member_files"].create(
-        {
-            "id": int,
-            "url": str,
-        }, pk="id", if_not_exists=True)
-
     users_db[f"{user.id}_calls"].create(
         {
             "id": int,
@@ -87,23 +80,24 @@ async def add_user_to_db(user: User):
 async def delete_user_tables(user: User):
     """:param user: message.from_user"""
     users_db.conn.execute(f"DELETE FROM user WHERE user_id = {user.id}")
-    users_db[f"{user.id}_telegram_files"].drop()
-    users_db[f"temp"].drop()
+    users_db[f"{user.id}_calls"].drop()
     users_db[f"{user.id}_photos"].drop()
     users_db[f"{user.id}_docs"].drop()
 
 
 @dp.message_handler(commands=['start'])
 async def send_start(message: types.Message):
-    await add_user_to_db(message.from_user)
-    time_diff = users_db['user'].get(message.from_user.id).get('last_seen') - datetime.timestamp(
-        datetime.now())
-    if abs(time_diff) // 60 >= 1440:
+    if not users_db['user'].get(message.from_user.id).get('user_id'):
+        logger.info(f'user_id:{message.from_user.id} добавлен в базу данных')
+        await add_user_to_db(message.from_user)
+    time_diff_visit = \
+        users_db['user'].get(message.from_user.id).get('last_seen') - datetime.timestamp(datetime.now())
+    if abs(time_diff_visit) // 60 >= 1:  # last seen 2h ago
         await export_csv(message.from_user)
         await delete_user_tables(message.from_user)
         await add_user_to_db(message.from_user)
-        print(f'user_id: {message.from_user.id} db data overwritten because more than 24 hours have\n'
-              f' passed since the last launch of the bot')
+        logger.info(f'user_id: {message.from_user.id} db data overwritten because more than 2 hours have\n'
+                     f' passed since the last launch of the bot')
 
     IK_select_source = InlineKeyboardMarkup(row_width=2)
     IK_select_source.add(

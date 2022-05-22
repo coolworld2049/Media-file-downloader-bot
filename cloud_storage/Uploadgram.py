@@ -1,5 +1,7 @@
 import UploadgramPyAPI
 
+from core import logger
+
 
 class Uploadgram:
     @staticmethod
@@ -9,7 +11,7 @@ class Uploadgram:
             response: dict = up_file.upload()
             return response
         except UploadgramPyAPI.UploadgramConnectionError as e:
-            print(e.args)
+            logger.info(e.args)
             return e.args
 
     @staticmethod
@@ -21,5 +23,5 @@ class Uploadgram:
             response: dict = up_file.delete()
             return response
         except UploadgramPyAPI.UploadgramConnectionError as e:
-            print(e.args)
+            logger.info(e.args)
             return e.args

@@ -1,3 +1,5 @@
+import time
+
 import emoji
 from aiogram import types, Dispatcher
 from aiogram.dispatcher import FSMContext
@@ -5,7 +7,7 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeybo
     ReplyKeyboardRemove
 
 from cloud_storage.YandexDisk import YandexDisk
-from core import dp, bot, MyStates, users_db
+from core import dp, bot, MyStates, users_db, logger
 from handlers.start_handler import send_start
 from social_nets.DownloadVk import DownloadVk
 
@@ -150,6 +152,7 @@ async def callback_save_album(callback_query: types.CallbackQuery, state: FSMCon
             await bot.send_message(callback_query.from_user.id, text=f'Загрузка альбома из VK',
                                    reply_markup=ReplyKeyboardRemove())
             # downloading
+            start = time.perf_counter()
             await DownloadVk().download_selected_album(user_id, callback_selected_album_id)
 
             if users_db['user'].get(user_id).get('vk_photo_download_completed'):
@@ -165,6 +168,8 @@ async def callback_save_album(callback_query: types.CallbackQuery, state: FSMCon
 
                 # uploading
                 await YandexDisk().upload_file(user_id, data=photo_url_ext, folder_name=curr_album_title)
+                end = time.perf_counter()
+                logger.info(f'total download/upload time: {end - start:0.4f} seconds')
 
                 if users_db['user'].get(callback_query.from_user.id).get('ya_upload_completed'):
                     url_for_download = await YandexDisk().request_publish(user_id, curr_album_title)
@@ -242,7 +247,8 @@ async def callback_save_docs(callback_query: types.CallbackQuery):
     user_id = callback_query.from_user.id
     await bot.send_message(callback_query.from_user.id, text=f'Загрузка документов из VK')
     res = await DownloadVk().download_docs(callback_query.from_user.id)
-    await bot.send_message(callback_query.from_user.id, text=res)
+    if res:
+        await bot.send_message(callback_query.from_user.id, text=res)
     if users_db['user'].get(user_id).get('vk_docs_download_completed'):
         await bot.send_message(callback_query.from_user.id,
                                text=f'Загрузка документов в облачное хранилище')
