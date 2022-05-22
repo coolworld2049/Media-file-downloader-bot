@@ -1,8 +1,9 @@
 import os
 from pathlib import Path
 
+import setuptools
 from pkg_resources import parse_requirements
-from setuptools import setup, find_packages
+from setuptools import find_packages
 
 from core import logger
 
@@ -24,7 +25,7 @@ def setup_py():
             for requirement in parse_requirements(requirements_txt.readlines())
         ]
         logger.debug(install_requires)
-    setup(
+    setuptools.setup(
         name='setup.py',
         version='1.0.0',
         packages=find_packages(include=['Social-media-file-downloader', 'Social-media-file-downloader.*']),
@@ -35,3 +36,7 @@ def setup_py():
         author_email='',
         description='Telegram bot to upload files from your VK account, YouTube to cloud storage'
     )
+
+
+if __name__ == "__main__":
+    setup_py()

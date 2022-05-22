@@ -1,5 +1,6 @@
 import logging
 import os
+import sqlite3
 
 import sqlite_utils
 from aiogram import Bot, Dispatcher
@@ -24,6 +25,11 @@ file_handler.setFormatter(file_formatter)
 logger.addHandler(file_handler)
 logger.addHandler(stream_handler)
 
+# ---Database
+path_to_db = 'db/users_db'
+# sqlite3.connect(path_to_db)
+users_db = sqlite_utils.Database(path_to_db)
+
 # ---Bot
 BOT_TOKEN = os.environ["BOT_TOKEN"]
 bot = Bot(token=BOT_TOKEN)
@@ -32,6 +38,3 @@ bot = Bot(token=BOT_TOKEN)
 MyStates = States.States
 dp = Dispatcher(bot, storage=MemoryStorage())
 dp.middleware.setup(LoggingMiddleware())
-
-# --Database
-users_db = sqlite_utils.Database("db/users_db.db")
