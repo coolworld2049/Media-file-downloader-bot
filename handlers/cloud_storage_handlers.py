@@ -3,7 +3,7 @@ from aiogram.dispatcher import FSMContext
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, KeyboardButton, ReplyKeyboardMarkup
 
 from cloud_storage.YandexDisk import YandexDisk
-from core import MyStates, dp, users_db, bot
+from core import MyStates, users_db, dp, bot
 from handlers.start_handler import send_start
 from handlers.vk_handlers import goto_select_vk_scope, callback_auth_vk
 
@@ -61,9 +61,8 @@ async def callback_auth_ya_disk(callback_query: types.CallbackQuery):
                                     ' семизначный КОД ПОДТВЕРЖДЕНИЯ боту',
                                reply_markup=IK_ya_auth)
         await MyStates.auth_ya_disk.set()
-    else:
-        if users_db[f"{callback_query.from_user.id}_calls"].get(0).get('call_from') == callback_auth_vk.__name__:
-            await set_select_vk_scope_state(callback_query)
+    elif users_db[f"{callback_query.from_user.id}_calls"].get(0).get('call_from') == callback_auth_vk.__name__:
+        await set_select_vk_scope_state(callback_query)
 
 
 @dp.message_handler(state=MyStates.auth_ya_disk)
@@ -84,7 +83,7 @@ async def message_auth_ya_disk(message: types.Message, state: FSMContext):
                     "auth_attempts": 3
                 }, pk="user_id")
             if users_db[f"{message.from_user.id}_calls"].get(0).get('call_from') == callback_auth_vk.__name__:
-                await set_select_vk_scope_state(message)
+                await MyStates.select_vk_scope.set()
 
         # more than 3 login attempts
         elif users_db['user'].get(message.from_user.id).get('auth_attempts') <= 0:

@@ -1,17 +1,15 @@
 import datetime
 import sqlite3
+from datetime import datetime as dt
 
 import pandas as pd
 import sqlite_utils
 from aiogram.types import User
-from datetime import datetime as dt
 
-from sqlite_utils import Database
-
-from core import logger
+from core import logger, users_db
 
 
-def __create_user_table(users_db: Database):
+def __create_user_table():
     users_db["user"].create(
         {
             "user_id": int,
@@ -37,7 +35,7 @@ def __create_user_table(users_db: Database):
         }, pk="user_id", if_not_exists=True)
 
 
-def __add_user_to_db(user: User, users_db: sqlite_utils.Database):
+def __add_user_to_db(user: User):
     users_db["user"].insert_all(
         [
             {
@@ -100,7 +98,7 @@ def __add_user_to_db(user: User, users_db: sqlite_utils.Database):
         }, pk="id", if_not_exists=True)
 
 
-def __delete_user_tables(user: User, users_db: sqlite_utils.Database):
+def __delete_user_tables(user: User):
     users_db.conn.execute(f"DELETE FROM user WHERE user_id = {user.id}")
     users_db[f"{user.id}_calls"].drop()
     users_db[f"{user.id}_photos"].drop()
