@@ -1,37 +1,32 @@
-import logging
+import os
 
 from aiogram.utils.executor import start_webhook
 
-from core import bot, dp
+from core import dp, bot
+from handlers.cloud_storage_handlers import register_cloud_storage
+from handlers.start_handler import register_handlers_main
+from handlers.vk_handlers import register_handlers_vk
+from handlers.yt_handlers import register_handlers_yt
 
-WEBHOOK_HOST = 'https://your.domain'
-WEBHOOK_PATH = '/path/to/api'
+WEBHOOK_HOST = 'https://a7115-76fe.c.d-f.pw:80'
+WEBHOOK_PATH = f'/{os.environ["BOT_TOKEN"]}/'
 WEBHOOK_URL = f"{WEBHOOK_HOST}{WEBHOOK_PATH}"
 
 # webserver settings
-WEBAPP_HOST = 'localhost'  # or ip
-WEBAPP_PORT = 3001
+WEBAPP_HOST = '0.0.0.0'  # or ip
+WEBAPP_PORT = 80
 
 
-async def on_startup(dp):
-    await bot.set_webhook(WEBHOOK_URL)
-    # insert code here to run it after start
+async def on_startup(dispather):
+    register_handlers_main(dp)
+    register_cloud_storage(dp)
+    register_handlers_vk(dp)
+    register_handlers_yt(dp)
+    await bot.set_webhook(WEBHOOK_URL, drop_pending_updates=True)
 
 
-async def on_shutdown(dp):
-    logging.warning('Shutting down..')
-
-    # insert code here to run it before shutdown
-
-    # Remove webhook (not acceptable in some cases)
+async def on_shutdown(dispather):
     await bot.delete_webhook()
-
-    # Close DB connection (if used)
-    await dp.storage.close()
-    await dp.storage.wait_closed()
-
-    logging.warning('Bye!')
-
 
 if __name__ == '__main__':
     start_webhook(

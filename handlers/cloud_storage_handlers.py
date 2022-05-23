@@ -3,7 +3,7 @@ from aiogram.dispatcher import FSMContext
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, KeyboardButton, ReplyKeyboardMarkup
 
 from cloud_storage.YandexDisk import YandexDisk
-from core import MyStates, dp, users_db, bot
+from core import MyStates, users_db, dp, bot
 from handlers.start_handler import send_start
 from handlers.vk_handlers import goto_select_vk_scope, callback_auth_vk
 

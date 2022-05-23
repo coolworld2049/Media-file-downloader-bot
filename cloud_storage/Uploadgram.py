@@ -5,17 +5,18 @@ from core import logger
 
 class Uploadgram:
     @staticmethod
-    async def upload(path_to_file: str):
+    def upload(path_to_file: str):
         try:
             up_file = UploadgramPyAPI.NewFile(path_to_file)
             response: dict = up_file.upload()
+            logger.info(response)
             return response
         except UploadgramPyAPI.UploadgramConnectionError as e:
             logger.info(e.args)
             return e.args
 
     @staticmethod
-    async def delete(uploaded_file_data: dict[str, str, str]):
+    def delete(uploaded_file_data: dict[str, str, str]):
         file_id = str(uploaded_file_data.get('url')).split('/')[-1]
         delete_key = uploaded_file_data.get('delete_key')
         try:

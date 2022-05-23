@@ -1,10 +1,11 @@
+import logging
 import os
 
 from aiogram import types, Dispatcher
 from aiogram.dispatcher import FSMContext
 
 from cloud_storage.Uploadgram import Uploadgram
-from core import dp, MyStates, bot, users_db
+from core import MyStates, dp, bot
 from social_nets.DownloadYt import DownloadYt
 
 
@@ -25,29 +26,15 @@ async def message_download_yt(message: types.Message, state: FSMContext):
     async with state.proxy():
         user_url = message.text
         await state.finish()
-    path_to_file = await DownloadYt().download_video_locally(message.from_user.id, user_url)
-    response = await Uploadgram().upload(path_to_file)
-    await bot.send_message(message.from_user.id,
-                           text=f"@{message.from_user.username}\n"
-                                f"Your download link is {response['url']}")
-    users_db[f"{message.from_user.id}_bot_member_files"].upsert(
-        {
-            "id": 0,
-            "url": response['url'],
-        }, pk="id")
+    path_to_file = await DownloadYt().download_video_locally(user_url)
+    response = Uploadgram().upload(path_to_file)
+    try:
+        await bot.send_message(message.from_user.id,
+                               text=f"@{message.from_user.username}\n"
+                                    f"Your download link is {response['url']}?raw")
+    except TypeError as te:
+        await bot.send_message(message.from_user.id,
+                               text=f"@{message.from_user.username}\n"
+                                    f"Your download link is empty")
+        logging.info(te.args)
     os.remove(path_to_file)
-
-    """await bot_agent.start()
-    frw_msg = await DownloadYt().download_video_locally(message.from_user.id, user_url)
-    await bot_agent.forward_to_bot(frw_msg)
-    if message.content_type == 'document':
-        await bot.send_message(message.from_user.id, 'received file from agent')
-        await bot.send_document(message.from_user.id, message.document.file_id,
-                                caption=f"{frw_msg['file_name']}{DownloadYt().ext}")"""
-
-
-"""@dp.callback_query_handler(lambda c: c.data == 'download_file')
-async def callback_download_yt(callback_query: types.CallbackQuery):
-    url = users_db[f"{callback_query.from_user.id}_bot_member_files"].get(0).get('url')
-    async with aiohttp.ClientSession() as session:
-        response = await session.get(url)"""

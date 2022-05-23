@@ -7,7 +7,7 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeybo
     ReplyKeyboardRemove
 
 from cloud_storage.YandexDisk import YandexDisk
-from core import dp, bot, MyStates, users_db, logger
+from core import users_db, MyStates, logger, dp, bot
 from handlers.start_handler import send_start
 from social_nets.DownloadVk import DownloadVk
 
