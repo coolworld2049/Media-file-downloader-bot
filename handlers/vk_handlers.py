@@ -96,6 +96,8 @@ async def message_select_vk_scope(message: types.Message, state: FSMContext):
                                                 callback_data=scopes_list[0]))
         IK_scopes_list.add(InlineKeyboardButton(emoji.emojize(scopes_list[1] + ' :page_facing_up:'),
                                                 callback_data=scopes_list[1]))
+        IK_scopes_list.add(InlineKeyboardButton(emoji.emojize(':left_arrow:') + 'menu',
+                                                callback_data='to_menu'))
         await bot.send_message(message.from_user.id, 'Выберите что необходимо скачать',
                                reply_markup=IK_scopes_list)
     else:
@@ -190,8 +192,10 @@ async def callback_save_album(callback_query: types.CallbackQuery, state: FSMCon
                 await MyStates.save_album.set()
 
         elif callback_query.data == 'save_all_photos':
+            await state.finish()
             await callback_save_all_photo(callback_query)
         elif callback_query.data == 'back':
+            await state.finish()
             await bot.send_message(callback_query.from_user.id, text='Назад',
                                    reply_markup=goto_select_vk_scope())
             await MyStates.select_vk_scope.set()

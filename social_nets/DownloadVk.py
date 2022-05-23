@@ -74,11 +74,11 @@ class DownloadVk:
                     except KeyError:
                         if check['response']['success'] == 1:
                             logger.info(f"user_id: {user_id}. checkToken: success="
-                                  f"{check['response']['success']}")
+                                        f"{check['response']['success']}")
                             return True
         except KeyError as ke2:
             logger.info(f'user_id: {user_id}. User is not authorized check_token'
-                  f'(user_id: {user_id}): {ke2.args}')
+                        f'(user_id: {user_id}): {ke2.args}')
             return False
 
     # ----vk api requests----
@@ -95,7 +95,7 @@ class DownloadVk:
                                        'v': self.__vk_api_v__
                                    }) as resp:
                 logger.info(f'request_get_all_photos(user_id: {user_id}): offset: {offset}, count: {count},'
-                      f' response_status: {resp.status}')
+                            f' response_status: {resp.status}')
                 return await resp.json()
 
     async def request_get_service_albums(self, user_id, service_album_id: int, offset=0, count=0):
@@ -111,11 +111,11 @@ class DownloadVk:
                                        'v': self.__vk_api_v__
                                    }) as resp:
                 logger.info(f'request_get_service_albums(user_id: {user_id}): offset: {offset}, count: {count},'
-                      f' service_album_id: {service_album_id}), response_status: {resp.status}')
+                            f' service_album_id: {service_album_id}), response_status: {resp.status}')
                 return await resp.json()
 
     async def request_get_photo_by_id(self, user_id: int, photo_id: int | list):
-        photo = str()
+        photo = ''
         owner_id = users_db['user'].get(user_id).get('vk_user_id')
         if isinstance(photo_id, list):
             for item in photo_id:
@@ -132,9 +132,14 @@ class DownloadVk:
                                            'v': self.__vk_api_v__
                                        }) as resp:
                     return await resp.json()
-        except clientConnectorError as ke:
+        except clientConnectorError as cce:
             logger.info(f'user_id: {user_id}. get_photo_by_id(user_id: {user_id})'
-                  f'Connection Error: {ke.args}')
+                        f'Connection Error: {cce.args}')
+            await asyncio.sleep(0.1)
+        except KeyError as ke:
+            logger.info(f'user_id: {user_id}. get_photo_by_id(user_id: {user_id})'
+                        f'KeyError: {ke.args}')
+            await asyncio.sleep(0.1)
         logger.info(f'request_get_photo_by_id(user_id: {user_id}): response_status: {resp.status}')
 
     async def request_get_albums(self, user_id):
@@ -205,7 +210,7 @@ class DownloadVk:
             return albums_id_title.items()
         except Exception as e:
             logger.info(f'get_album_id_title(user_id: {user_id}).'
-                  f' Exception {e.args}')
+                        f' Exception {e.args}')
             return e.args
         finally:
             logger.info(f'get_album_id_title(user_id: {user_id}')
@@ -219,7 +224,7 @@ class DownloadVk:
                     return value
         except Exception as e:
             logger.info(f'display_albums_title(user_id: {user_id}, album_id: {album_id}).'
-                  f' Exception {e.args}')
+                        f' Exception {e.args}')
             return e.args
         finally:
             logger.info(f'get_album_title(user_id: {user_id}, album_id: {album_id}')
@@ -248,7 +253,7 @@ class DownloadVk:
             }, pk="user_id")
         end = time.perf_counter()
         logger.info(f'request_get_photo_url(user_id: {user_id}) '
-              f'was completed in {end - start:0.4f} seconds')
+                    f'was completed in {end - start:0.4f} seconds')
         logger.info(f'downloaded {users_db["user"].get(user_id).get("total_number_downloaded_file")}')
 
     @staticmethod
@@ -284,8 +289,9 @@ class DownloadVk:
             }, pk="user_id")
         end = time.perf_counter()
         logger.info(f'request_get_photo_url_by_chunks(user_id: {user_id}) '
-              f'was completed in {end - start:0.4f} seconds')
-        logger.info(f'user_id {user_id}. Downloaded {users_db["user"].get(user_id).get("total_number_downloaded_file")}')
+                    f'was completed in {end - start:0.4f} seconds')
+        logger.info(
+            f'user_id {user_id}. Downloaded {users_db["user"].get(user_id).get("total_number_downloaded_file")}')
 
     async def __get_photo_id_album_id_controller(self, user_id, offset: int):
         data = await self.request_get_all_photos(user_id, offset=offset, count=200)
@@ -388,7 +394,7 @@ class DownloadVk:
 
             end_get_all_photos = time.perf_counter()
             logger.info(f'user_id: {user_id}. photoIdsOfSelectedAlbum.append(key)'
-                  f' was completed in {end_get_all_photos - start_get_all_photos:0.4f} seconds')
+                        f' was completed in {end_get_all_photos - start_get_all_photos:0.4f} seconds')
 
             if photoIdsOfSelectedAlbum and len(photoIdsOfSelectedAlbum) >= chunk_size:
                 await self.__get_photos_urls_by_chunks(user_id, album_title, photoIdsOfSelectedAlbum, chunk_size)
@@ -402,8 +408,8 @@ class DownloadVk:
                     }, pk="user_id")
             else:
                 logger.info(f'user_id: {user_id}. download_selected_album(user_id: {user_id},'
-                      f' selected_album_id: {selected_album_id}.'
-                      f' При получении альбома возникла ошибка')
+                            f' selected_album_id: {selected_album_id}.'
+                            f' При получении альбома возникла ошибка')
                 return 'При получении альбома возникла ошибка'
 
     async def download_docs(self, user_id):

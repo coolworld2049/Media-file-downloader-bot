@@ -11,6 +11,7 @@ from db.db_mgmt import export_db, __create_user_table, __add_user_to_db, __delet
 def register_handlers_main(dispatcher: Dispatcher):
     dispatcher.register_message_handler(send_start, commands="start")
     dispatcher.register_message_handler(send_help, commands="help")
+    dispatcher.register_callback_query_handler(menu, lambda c: c.data == 'to_menu')
 
 
 @dp.message_handler(commands=['start'])
@@ -35,6 +36,19 @@ async def send_start(message: types.Message):
         InlineKeyboardButton(text=emoji.emojize(':globe_with_meridians: Get from YouTube'),
                              callback_data='button_video_yt'))
     await bot.send_message(message.from_user.id, text=f'Привет {message.from_user.first_name}!',
+                           reply_markup=IK_select_source)
+
+
+@dp.callback_query_handler(lambda c: c.data == 'to_menu')
+async def menu(callback_query: types.CallbackQuery):
+    IK_select_source = InlineKeyboardMarkup(row_width=2)
+    IK_select_source.add(
+        InlineKeyboardButton(text=emoji.emojize(':dizzy: Get from VK'),
+                             callback_data='buttonVk'),
+        InlineKeyboardButton(text=emoji.emojize(':globe_with_meridians: Get from YouTube'),
+                             callback_data='button_video_yt'))
+    await bot.send_message(callback_query.from_user.id,
+                           text=f'Привет {callback_query.from_user.first_name}!',
                            reply_markup=IK_select_source)
 
 
