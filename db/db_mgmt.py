@@ -3,7 +3,6 @@ import sqlite3
 from datetime import datetime as dt
 
 import pandas as pd
-import sqlite_utils
 from aiogram.types import User
 
 from core import logger, users_db
@@ -36,31 +35,29 @@ def __create_user_table():
 
 
 def __add_user_to_db(user: User):
-    users_db["user"].insert_all(
-        [
-            {
-                "user_id": user.id,
-                "language_code": user.language_code,
-                "username": user.username,
-                "first_name": user.first_name,
-                "last_name": user.last_name,
-                "user_url": user.url,
-                "last_seen": dt.timestamp(dt.now()),
-                "cloud_storage": '',
-                "auth_attempts": 3,
-                "vk_token": '',
-                "vk_user_id": 0,
-                "vk_token_expires_in": 0,
-                "vk_user_authorized": False,
-                "vk_photo_download_completed": False,
-                "vk_docs_download_completed": False,
-                "total_number_downloaded_file": 0,
-                "y_api_token": '',
-                "ya_user_authorized": False,
-                "ya_upload_completed": False,
-                "total_number_uploaded_file": 0
-            }
-        ], pk="user_id", ignore=True)
+    users_db["user"].insert(
+        {
+            "user_id": user.id,
+            "language_code": user.language_code,
+            "username": user.username,
+            "first_name": user.first_name,
+            "last_name": user.last_name,
+            "user_url": user.url,
+            "last_seen": dt.timestamp(dt.now()),
+            "cloud_storage": '',
+            "auth_attempts": 3,
+            "vk_token": '',
+            "vk_user_id": 0,
+            "vk_token_expires_in": 0,
+            "vk_user_authorized": False,
+            "vk_photo_download_completed": False,
+            "vk_docs_download_completed": False,
+            "total_number_downloaded_file": 0,
+            "y_api_token": '',
+            "ya_user_authorized": False,
+            "ya_upload_completed": False,
+            "total_number_uploaded_file": 0
+        }, pk="user_id", ignore=True)
 
     users_db['user'].upsert(
         {
