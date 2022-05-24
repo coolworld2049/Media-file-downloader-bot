@@ -3,7 +3,6 @@ import sqlite3
 from datetime import datetime as dt
 
 import pandas as pd
-import sqlite_utils
 from aiogram.types import User
 
 from core import logger, users_db

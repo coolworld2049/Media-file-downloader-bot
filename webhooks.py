@@ -8,7 +8,7 @@ from handlers.start_handler import register_handlers_main
 from handlers.vk_handlers import register_handlers_vk
 from handlers.yt_handlers import register_handlers_yt
 
-WEBHOOK_HOST = 'https://a7115-76fe.c.d-f.pw:80'
+WEBHOOK_HOST = f'{os.environ["WEBHOOK_HOST"]}:80'
 WEBHOOK_PATH = f'/{os.environ["BOT_TOKEN"]}/'
 WEBHOOK_URL = f"{WEBHOOK_HOST}{WEBHOOK_PATH}"
 

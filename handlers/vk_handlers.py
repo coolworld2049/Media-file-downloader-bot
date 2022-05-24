@@ -91,7 +91,7 @@ async def message_select_vk_scope(message: types.Message, state: FSMContext):
     if await DownloadVk().check_token(message.from_user.id):
         # display scopes list
         IK_scopes_list = InlineKeyboardMarkup()
-        scopes_list = DownloadVk().__scopes__.split(',')
+        scopes_list = DownloadVk().__scopes.split(',')
         IK_scopes_list.add(InlineKeyboardButton(emoji.emojize(scopes_list[0] + ' :bridge_at_night:'),
                                                 callback_data=scopes_list[0]))
         IK_scopes_list.add(InlineKeyboardButton(emoji.emojize(scopes_list[1] + ' :page_facing_up:'),

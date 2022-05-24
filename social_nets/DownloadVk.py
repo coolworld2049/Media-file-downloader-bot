@@ -12,33 +12,33 @@ from core import users_db, logger
 
 class DownloadVk:
     def __init__(self):
-        self.__vk_app_id__ = 8109852
-        self.__vk_api_v__ = 5.131
-        self.__scopes__ = "photos,docs"
-        self.__redirect_uri__ = 'https://oauth.vk.com/blank.html'
+        self.__vk_app_id = 8109852
+        self.__vk_api_v = 5.131
+        self.__scopes = "photos,docs"
+        self.__redirect_uri = 'https://oauth.vk.com/blank.html'
 
     # ----authorization----
 
     @abstractmethod
     def link(self):
         # response_type=code!
-        oAuth_link = f"https://oauth.vk.com/authorize?client_id={self.__vk_app_id__}&display=page&" \
-                     f"__redirect_uri__={self.__redirect_uri__}" \
-                     f"&scope={self.__scopes__}&revoke=1&response_type=code&v={self.__vk_api_v__}"
+        oAuth_link = f"https://oauth.vk.com/authorize?client_id={self.__vk_app_id}&display=page&" \
+                     f"__redirect_uri={self.__redirect_uri}" \
+                     f"&scope={self.__scopes}&revoke=1&response_type=code&v={self.__vk_api_v}"
 
         return oAuth_link
 
     @abstractmethod
     async def auth(self, user_id, vk_response: str):
         split_link = vk_response.split('#').copy()
-        if split_link[0] == self.__redirect_uri__:
+        if split_link[0] == self.__redirect_uri:
             code = split_link[1].split('=')[-1:][0]
             async with clientSession() as session:
                 async with session.get('https://oauth.vk.com/access_token',
                                        params={
-                                           'client_id': self.__vk_app_id__,
+                                           'client_id': self.__vk_app_id,
                                            'client_secret': os.environ.get('vk_app_secret'),
-                                           '__redirect_uri__': self.__redirect_uri__,
+                                           '__redirect_uri': self.__redirect_uri,
                                            'code': code
                                        }) as resp:
                     get_access_token = await resp.json()
@@ -64,7 +64,7 @@ class DownloadVk:
                                        params={
                                            'access_token': os.environ.get('vk_app_service'),
                                            'token': users_db['user'].get(user_id).get('vk_token'),
-                                           'v': self.__vk_api_v__
+                                           'v': self.__vk_api_v
                                        }) as resp:
                     check = await resp.json()
                     try:
@@ -92,7 +92,7 @@ class DownloadVk:
                                        'offset': offset,
                                        'count': count,
                                        'photo_sizes': 1,
-                                       'v': self.__vk_api_v__
+                                       'v': self.__vk_api_v
                                    }) as resp:
                 logger.info(f'request_get_all_photos(user_id: {user_id}): offset: {offset}, count: {count},'
                             f' response_status: {resp.status}')
@@ -108,7 +108,7 @@ class DownloadVk:
                                        'offset': offset,
                                        'count': count,
                                        'photo_sizes': 1,
-                                       'v': self.__vk_api_v__
+                                       'v': self.__vk_api_v
                                    }) as resp:
                 logger.info(f'request_get_service_albums(user_id: {user_id}): offset: {offset}, count: {count},'
                             f' service_album_id: {service_album_id}), response_status: {resp.status}')
@@ -129,7 +129,7 @@ class DownloadVk:
                                            'access_token':
                                                users_db['user'].get(user_id).get('vk_token'),
                                            'photos': photo,
-                                           'v': self.__vk_api_v__
+                                           'v': self.__vk_api_v
                                        }) as resp:
                     return await resp.json()
         except clientConnectorError as cce:
@@ -149,7 +149,7 @@ class DownloadVk:
                                        'access_token': users_db['user'].get(user_id).get('vk_token'),
                                        'user_id': users_db['user'].get(user_id).get('vk_user_id'),
                                        'need_system': 1,
-                                       'v': self.__vk_api_v__
+                                       'v': self.__vk_api_v
                                    }) as resp:
                 logger.info(f'request_get_albums(user_id: {user_id}): response_status: {resp.status}')
                 return await resp.json()
@@ -160,7 +160,7 @@ class DownloadVk:
             async with session.get("https://api.vk.com/method/docs.get",
                                    params={
                                        'access_token': users_db['user'].get(user_id).get('vk_token'),
-                                       'v': self.__vk_api_v__
+                                       'v': self.__vk_api_v
                                    }) as resp:
                 logger.info(f'request_get_docs(user_id: {user_id}): response_status: {resp.status}')
                 return await resp.json()
@@ -352,8 +352,7 @@ class DownloadVk:
             logger.info(f'user_id {user_id}. Task {i} await: {tasks[i]}')
         return tasks
 
-    async def download_selected_album(self, user_id, selected_album_id: int | str | list, chunk_size=50,
-                                      photoIdsOfSelectedAlbum: list = None):
+    async def download_selected_album(self, user_id, selected_album_id: int | str | list, chunk_size=50):
         users_db[f'{user_id}_photos'].drop()
         users_db[f"{user_id}_photos"].create(
             {
@@ -368,7 +367,7 @@ class DownloadVk:
                 "user_id": user_id,
                 "vk_photo_download_completed": False,
             }, pk="user_id")
-
+        photoIdsOfSelectedAlbum = []
         if users_db['user'].get(user_id).get('vk_user_authorized'):
             start_get_all_photos = time.perf_counter()
             album_title = await self.get_album_title(user_id, selected_album_id)
