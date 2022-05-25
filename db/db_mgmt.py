@@ -1,4 +1,6 @@
 import datetime
+import os
+import pathlib
 import sqlite3
 from datetime import datetime as dt
 
@@ -102,18 +104,28 @@ def __delete_user_tables(user: User):
     users_db[f"{user.id}_docs"].drop()
 
 
-def export_db(user: User):
-    conn = sqlite3.connect('db/users_db.db')
+def export_db(user: User, table_name: str = 'user'):
+    """table_name - example: 'user', 12345678_photos, 12345678_docs"""
+    conn = sqlite3.connect('db/users_db')
+    pathlib.Path('db/backup').mkdir(parents=True, exist_ok=True)
     try:
-        # export only user table
-        sql_query = pd.read_sql_query(
-            f"SELECT * FROM user WHERE user_id = '{user.id}'", conn)
-        pd.DataFrame(sql_query).to_csv(
-            rf'db/{datetime.date.today()} user_id {user.id}.csv', index=False)
+        if user.id != os.environ["ADMIN_ID"]:
+            path = rf'db/backup/{datetime.date.today()} user_id {user.id}_table.csv'
+            sql_query = pd.read_sql_query(
+                f"SELECT * FROM user WHERE user_id = '{user.id}'", conn)
+            pd.DataFrame(sql_query).to_csv(path, index=False)
+            logger.info(f"Created table backup {path}")
+        else:
+            path = rf'db/backup/{datetime.date.today()} user_table.xlsx'
+            with pd.ExcelWriter(path) as writer:
+                data = pd.read_sql_query(f"SELECT * FROM {table_name}", conn)
+                data.to_excel(writer, sheet_name="Sheet1", header=True, index=False)
+                logger.info(f"Created table backup {path}")
+                return path
     except sqlite3.Error as error:
         logger.info("Error while connecting to sqlite:", error.args)
+        return error.args
     finally:
         if conn:
             conn.close()
-            logger.info(f"The SQLite connection (export_csv.py) is closed.\n"
-                        f" Created table backup '{datetime.date.today()} user_id {user.id}.csv'")
+            logger.info(f"The SQLite connection (export_csv.py) is closed.")
