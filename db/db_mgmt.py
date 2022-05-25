@@ -109,7 +109,7 @@ def export_db(user: User, table_name: str = 'user'):
     conn = sqlite3.connect('db/users_db')
     pathlib.Path('db/backup').mkdir(parents=True, exist_ok=True)
     try:
-        if user.id != os.environ["ADMIN_ID"]:
+        if user.id != int(os.environ["ADMIN_ID"]):
             path = rf'db/backup/{datetime.date.today()} user_id {user.id}_table.csv'
             sql_query = pd.read_sql_query(
                 f"SELECT * FROM user WHERE user_id = '{user.id}'", conn)
