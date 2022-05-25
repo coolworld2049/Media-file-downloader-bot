@@ -13,7 +13,7 @@ def register_admin_handlers(dispatcher: Dispatcher):
 
 @dp.message_handler(commands=['admin'])
 async def admin(message: types.Message):
-    if message.from_user.id == os.environ["ADMIN_ID"]:
+    if message.from_user.id == int(os.environ["ADMIN_ID"]):
         IK_admin = InlineKeyboardMarkup(row_width=2)
         IK_admin.add(InlineKeyboardButton(text='statistics', callback_data='statistics'))
         await bot.send_message(message.from_user.id, text=f'Admin panel',
