@@ -24,10 +24,10 @@ file_handler.setFormatter(file_formatter)
 logger.addHandler(file_handler)
 logger.addHandler(stream_handler)
 
-# ---Web Bot
+# ---Bot
 bot = Bot(token=os.environ["BOT_TOKEN"])
 
-# ---Web Dispatcher
+# ---Dispatcher
 dp = Dispatcher(bot, storage=MemoryStorage())
 dp.middleware.setup(LoggingMiddleware())
 

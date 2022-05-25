@@ -14,7 +14,7 @@ class DownloadVk:
     def __init__(self):
         self.__vk_app_id = 8109852
         self.__vk_api_v = 5.131
-        self.__scopes = "photos,docs"
+        self.scopes = "photos,docs"
         self.__redirect_uri = 'https://oauth.vk.com/blank.html'
 
     # ----authorization----
@@ -24,7 +24,7 @@ class DownloadVk:
         # response_type=code!
         oAuth_link = f"https://oauth.vk.com/authorize?client_id={self.__vk_app_id}&display=page&" \
                      f"__redirect_uri={self.__redirect_uri}" \
-                     f"&scope={self.__scopes}&revoke=1&response_type=code&v={self.__vk_api_v}"
+                     f"&scope={self.scopes}&revoke=1&response_type=code&v={self.__vk_api_v}"
 
         return oAuth_link
 

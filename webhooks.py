@@ -3,6 +3,7 @@ import os
 from aiogram.utils.executor import start_webhook
 
 from core import dp, bot
+from handlers.admin_handlers import register_admin_handlers
 from handlers.cloud_storage_handlers import register_cloud_storage
 from handlers.start_handler import register_handlers_main
 from handlers.vk_handlers import register_handlers_vk
@@ -18,6 +19,7 @@ WEBAPP_PORT = 80
 
 
 async def on_startup(dispather):
+    register_admin_handlers(dp)
     register_handlers_main(dp)
     register_cloud_storage(dp)
     register_handlers_vk(dp)
