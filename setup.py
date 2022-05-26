@@ -36,7 +36,3 @@ def setup_py():
         author_email='',
         description='Telegram bot to upload files from your VK account, YouTube to cloud storage'
     )
-
-
-if __name__ == "__main__":
-    setup_py()
