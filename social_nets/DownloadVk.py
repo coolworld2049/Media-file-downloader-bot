@@ -229,69 +229,10 @@ class DownloadVk:
         finally:
             logger.info(f'get_album_title(user_id: {user_id}, album_id: {album_id}')
 
-    async def __get_photos_urls(self, user_id, album_title: str, photoIdsOfSelectedAlbum: list):
-        start = time.perf_counter()
-        count = 0
-        data = await self.request_get_photo_by_id(user_id, photoIdsOfSelectedAlbum)
-        for item in tqdm(data['response'], token=os.environ.get("BOT_TOKEN"), chat_id=user_id):
-            users_db[f"{user_id}_photos"].insert_all(
-                [
-                    {
-                        "id": count,
-                        "photo_url": item["sizes"][-1]["url"],
-                        "photo_ext": '.jpg',
-                        "album_title": album_title
-                    }
-                ], pk="id", replace=True)
-            count += 1
-            logger.info(item["sizes"][-1]["url"])
-        users_db['user'].upsert(
-            {
-                "user_id": user_id,
-                "total_number_downloaded_file":
-                    users_db["user"].get(user_id).get("total_number_downloaded_file") + count
-            }, pk="user_id")
-        end = time.perf_counter()
-        logger.info(f'request_get_photo_url(user_id: {user_id}) '
-                    f'was completed in {end - start:0.4f} seconds')
-        logger.info(f'downloaded {users_db["user"].get(user_id).get("total_number_downloaded_file")}')
-
     @staticmethod
     async def __wrapper__(delay, coro):
         await asyncio.sleep(delay)
         return await coro
-
-    async def __get_photos_urls_by_chunks(self, user_id, album_title: str, photoIdsOfSelectedAlbum: list,
-                                          chunk_size: int):
-        start = time.perf_counter()
-        count = 0
-        chunked_list = [photoIdsOfSelectedAlbum[i:i + chunk_size]
-                        for i in range(0, len(photoIdsOfSelectedAlbum), chunk_size)]
-        async for index in tqdm(range(len(chunked_list)), token=os.environ.get("BOT_TOKEN"), chat_id=user_id):
-            data = await DownloadVk().__wrapper__(0.3, self.request_get_photo_by_id(user_id, chunked_list[index]))
-            for item in data['response']:
-                users_db[f"{user_id}_photos"].insert_all(
-                    [
-                        {
-                            "id": count,
-                            "photo_url": item["sizes"][-1]["url"],
-                            "photo_ext": '.jpg',
-                            "album_title": album_title
-                        }
-                    ], pk="id", replace=True)
-                count += 1
-                logger.info(item["sizes"][-1]["url"])
-        users_db['user'].upsert(
-            {
-                "user_id": user_id,
-                "total_number_downloaded_file":
-                    users_db["user"].get(user_id).get("total_number_downloaded_file") + count
-            }, pk="user_id")
-        end = time.perf_counter()
-        logger.info(f'request_get_photo_url_by_chunks(user_id: {user_id}) '
-                    f'was completed in {end - start:0.4f} seconds')
-        logger.info(
-            f'user_id {user_id}. Downloaded {users_db["user"].get(user_id).get("total_number_downloaded_file")}')
 
     async def __get_photo_id_album_id_controller(self, user_id, offset: int):
         data = await self.request_get_all_photos(user_id, offset=offset, count=200)
@@ -319,7 +260,7 @@ class DownloadVk:
                 continue
         for i in range(len(tasks)):
             await tasks[i]
-            logger.info(f'user_id {user_id}. Task {i} await: {tasks[i]}')
+            # logger.info(f'user_id {user_id}. Task {i} await: {tasks[i]}')
         return tasks
 
     async def __get_service_albums_controller(self, user_id, service_album_id: int, offset: int):
@@ -349,8 +290,67 @@ class DownloadVk:
                 continue
         for i in range(len(tasks)):
             await tasks[i]
-            logger.info(f'user_id {user_id}. Task {i} await: {tasks[i]}')
+            # logger.info(f'user_id {user_id}. Task {i} await: {tasks[i]}')
         return tasks
+
+    async def __get_photos_urls(self, user_id, album_title: str, photoIdsOfSelectedAlbum: list):
+        start = time.perf_counter()
+        count = 0
+        data = await self.request_get_photo_by_id(user_id, photoIdsOfSelectedAlbum)
+        for item in tqdm(data['response'], token=os.environ.get("BOT_TOKEN"), chat_id=user_id):
+            users_db[f"{user_id}_photos"].insert_all(
+                [
+                    {
+                        "id": count,
+                        "photo_url": item["sizes"][-1]["url"],
+                        "photo_ext": '.jpg',
+                        "album_title": album_title
+                    }
+                ], pk="id", replace=True)
+            count += 1
+            # logger.info(item["sizes"][-1]["url"])
+        users_db['user'].upsert(
+            {
+                "user_id": user_id,
+                "total_number_downloaded_file":
+                    users_db["user"].get(user_id).get("total_number_downloaded_file") + count
+            }, pk="user_id")
+        end = time.perf_counter()
+        logger.info(f'request_get_photo_url(user_id: {user_id}) '
+                    f'was completed in {end - start:0.4f} seconds')
+        logger.info(f'downloaded {users_db["user"].get(user_id).get("total_number_downloaded_file")}')
+
+    async def __get_photos_urls_by_chunks(self, user_id, album_title: str, photoIdsOfSelectedAlbum: list,
+                                          chunk_size: int):
+        start = time.perf_counter()
+        count = 0
+        chunked_list = [photoIdsOfSelectedAlbum[i:i + chunk_size]
+                        for i in range(0, len(photoIdsOfSelectedAlbum), chunk_size)]
+        async for index in tqdm(range(len(chunked_list)), token=os.environ.get("BOT_TOKEN"), chat_id=user_id):
+            data = await DownloadVk().__wrapper__(0.3, self.request_get_photo_by_id(user_id, chunked_list[index]))
+            for item in data['response']:
+                users_db[f"{user_id}_photos"].insert_all(
+                    [
+                        {
+                            "id": count,
+                            "photo_url": item["sizes"][-1]["url"],
+                            "photo_ext": '.jpg',
+                            "album_title": album_title
+                        }
+                    ], pk="id", replace=True)
+                count += 1
+                # logger.info(item["sizes"][-1]["url"])
+        users_db['user'].upsert(
+            {
+                "user_id": user_id,
+                "total_number_downloaded_file":
+                    users_db["user"].get(user_id).get("total_number_downloaded_file") + count
+            }, pk="user_id")
+        end = time.perf_counter()
+        logger.info(f'request_get_photo_url_by_chunks(user_id: {user_id}) '
+                    f'was completed in {end - start:0.4f} seconds')
+        logger.info(
+            f'user_id {user_id}. Downloaded {users_db["user"].get(user_id).get("total_number_downloaded_file")}')
 
     async def download_selected_album(self, user_id, selected_album_id: int | str | list, chunk_size=50):
         users_db[f'{user_id}_photos'].drop()
@@ -361,12 +361,12 @@ class DownloadVk:
                 "photo_ext": str,
                 "album_title": str,
             }, pk="id")
-
         users_db['user'].upsert(
             {
                 "user_id": user_id,
                 "vk_photo_download_completed": False,
             }, pk="user_id")
+
         photoIdsOfSelectedAlbum = []
         if users_db['user'].get(user_id).get('vk_user_authorized'):
             start_get_all_photos = time.perf_counter()
@@ -395,6 +395,7 @@ class DownloadVk:
             logger.info(f'user_id: {user_id}. photoIdsOfSelectedAlbum.append(key)'
                         f' was completed in {end_get_all_photos - start_get_all_photos:0.4f} seconds')
 
+            # downloading
             if photoIdsOfSelectedAlbum and len(photoIdsOfSelectedAlbum) >= chunk_size:
                 await self.__get_photos_urls_by_chunks(user_id, album_title, photoIdsOfSelectedAlbum, chunk_size)
             else:
@@ -409,7 +410,6 @@ class DownloadVk:
                 logger.info(f'user_id: {user_id}. download_selected_album(user_id: {user_id},'
                             f' selected_album_id: {selected_album_id}.'
                             f' При получении альбома возникла ошибка')
-                return 'При получении альбома возникла ошибка'
 
     async def download_docs(self, user_id):
         users_db[f'{user_id}_docs'].drop()
@@ -444,7 +444,7 @@ class DownloadVk:
                                 }
                             ], pk="id", replace=True)
                         count += 1
-                        logger.info(doc['url'], sep='\n')
+                        # logger.info(doc['url'], sep='\n')
                     if users_db[f"{user_id}_docs"].count > 0:
                         users_db['user'].upsert(
                             {
@@ -452,7 +452,7 @@ class DownloadVk:
                                 "vk_docs_download_completed": True,
                             }, pk="user_id")
                 else:
-                    return 'На вашем аккаунте отсутствуют документы'
+                    logger.info(f'save_docs(user_id: {user_id}). Exception:'
+                                f' docs["response"]["count"]={docs["response"]["count"]}')
             except Exception as e:
                 logger.info(f'save_docs(user_id: {user_id}). Exception {e.args}')
-                return f'{e.args}'

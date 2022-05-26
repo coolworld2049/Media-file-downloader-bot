@@ -24,6 +24,7 @@ file_handler.setFormatter(file_formatter)
 logger.addHandler(file_handler)
 logger.addHandler(stream_handler)
 
+
 # ---Bot
 bot = Bot(token=os.environ["BOT_TOKEN"])
 

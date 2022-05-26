@@ -9,13 +9,13 @@ from db.db_mgmt import export_db, __create_user_table, __add_user_to_db, __delet
 
 
 def register_handlers_main(dispatcher: Dispatcher):
-    dispatcher.register_message_handler(send_start, commands="start")
+    dispatcher.register_message_handler(message_start, commands="start")
     dispatcher.register_message_handler(send_help, commands="help")
-    dispatcher.register_callback_query_handler(menu, lambda c: c.data == 'to_menu')
+    dispatcher.register_callback_query_handler(message_start_menu, lambda c: c.data == 'to_menu')
 
 
 @dp.message_handler(commands=['start'])
-async def send_start(message: types.Message):
+async def message_start(message: types.Message):
     __create_user_table()
     __add_user_to_db(message.from_user)
     logger.info(f'user_id:{message.from_user.id} added to db')
@@ -31,21 +31,21 @@ async def send_start(message: types.Message):
 
     IK_select_source = InlineKeyboardMarkup(row_width=2)
     IK_select_source.add(
-        InlineKeyboardButton(text=emoji.emojize(':dizzy: Get from VK'),
+        InlineKeyboardButton(text=f"{emoji.emojize(':dizzy:')} Загрузить из ВК",
                              callback_data='buttonVk'),
-        InlineKeyboardButton(text=emoji.emojize(':globe_with_meridians: Get from YouTube'),
+        InlineKeyboardButton(text=f"{emoji.emojize(':globe_with_meridians:')} Загрузить из Youtube",
                              callback_data='button_video_yt'))
     await bot.send_message(message.from_user.id, text=f'Привет {message.from_user.first_name}!',
                            reply_markup=IK_select_source)
 
 
-@dp.callback_query_handler(lambda c: c.data == 'to_menu')
-async def menu(callback_query: types.CallbackQuery):
+@dp.callback_query_handler(lambda c: c.data == 'start_menu')
+async def message_start_menu(callback_query: types.CallbackQuery):
     IK_select_source = InlineKeyboardMarkup(row_width=2)
     IK_select_source.add(
-        InlineKeyboardButton(text=emoji.emojize(':dizzy: Get from VK'),
+        InlineKeyboardButton(text=emoji.emojize(':dizzy: Загрузить из ВК'),
                              callback_data='buttonVk'),
-        InlineKeyboardButton(text=emoji.emojize(':globe_with_meridians: Get from YouTube'),
+        InlineKeyboardButton(text=emoji.emojize(':globe_with_meridians: Загрузить из Youtube'),
                              callback_data='button_video_yt'))
     await bot.send_message(callback_query.from_user.id,
                            text=f'Привет {callback_query.from_user.first_name}!',
@@ -54,5 +54,5 @@ async def menu(callback_query: types.CallbackQuery):
 
 @dp.message_handler(commands=['help'])
 async def send_help(message: types.Message):
-    await message.answer('/start - выбрать соц. сеть\n',
-                         '/help - список команд')
+    await message.answer('/start' + '- выбрать соц. сеть\n'
+                         '/help' + '- список команд')

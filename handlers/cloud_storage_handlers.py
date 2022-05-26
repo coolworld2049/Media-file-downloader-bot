@@ -4,7 +4,7 @@ from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, KeyboardBu
 
 from cloud_storage.YandexDisk import YandexDisk
 from core import MyStates, users_db, dp, bot
-from handlers.start_handler import send_start
+from handlers.start_handler import message_start
 from handlers.vk_handlers import goto_select_vk_scope, callback_auth_vk
 
 
@@ -18,8 +18,8 @@ def register_cloud_storage(dispatcher: Dispatcher):
 async def callback_select_storage(callback_query: types.CallbackQuery, state: FSMContext):
     IK_select_storage = InlineKeyboardMarkup()
     IK_select_storage.add(
-        InlineKeyboardButton('Yandex Disk', callback_data='auth_ya_disk'),
-        InlineKeyboardButton('Google Disk', callback_data='auth_g_drive'))
+        InlineKeyboardButton('Яндекс Диск', callback_data='auth_ya_disk'),
+        InlineKeyboardButton('Гугл Диск', callback_data='auth_g_drive'))
     await bot.send_message(callback_query.from_user.id,
                            text='Выберите место куда необходимо загрузить ваши файлы',
                            reply_markup=IK_select_storage)
@@ -27,7 +27,7 @@ async def callback_select_storage(callback_query: types.CallbackQuery, state: FS
 
 
 async def set_select_vk_scope_state(input_type: types.CallbackQuery | types.Message):
-    await bot.send_message(input_type.from_user.id, text=f'Вы уже авторизовались в Yandex Disk!')
+    await bot.send_message(input_type.from_user.id, text=f'Вы уже авторизовались в Яндекс Диске!')
     await bot.send_message(input_type.from_user.id,
                            text='Перейти к выбору области загрузки',
                            reply_markup=goto_select_vk_scope())
@@ -49,14 +49,14 @@ async def callback_auth_ya_disk(callback_query: types.CallbackQuery):
     users_db['user'].upsert(
         {
             "user_id": callback_query.from_user.id,
-            "cloud_storage": 'Yandex Disk'
+            "cloud_storage": 'Яндекс Диск'
         }, pk="user_id")
     if not users_db['user'].get(callback_query.from_user.id).get('ya_user_authorized'):
         IK_ya_auth = InlineKeyboardMarkup()
-        IK_ya_auth.add(InlineKeyboardButton('Авторизация в Yandex Disk', url=YandexDisk().link()))
+        IK_ya_auth.add(InlineKeyboardButton('Авторизация в Яндекс Диске', url=YandexDisk().link()))
         await bot.send_message(callback_query.from_user.id,
                                text='Данные будут загружены в отдельную папку'
-                                    ' в вашем облачном хранилище Yandex Disk.'
+                                    ' в вашем облачном хранилище Яндекс Диск.'
                                     ' Для авторизации нажмите на кнопку и перешлите'
                                     ' семизначный КОД ПОДТВЕРЖДЕНИЯ боту',
                                reply_markup=IK_ya_auth)
@@ -88,7 +88,7 @@ async def message_auth_ya_disk(message: types.Message, state: FSMContext):
         # more than 3 login attempts
         elif users_db['user'].get(message.from_user.id).get('auth_attempts') <= 0:
             await state.finish()
-            await send_start(message)
+            await message_start(message)
         else:
             users_db['user'].upsert(
                 {
