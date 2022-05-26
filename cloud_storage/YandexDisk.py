@@ -102,7 +102,7 @@ class YandexDisk:
                 await asyncio.sleep(1.1)
                 for k in range(len(tasks)):
                     await tasks[i]
-                    logger.info(f'user_id {user_id}. Task {i} await: {tasks[i]}')
+                    # logger.info(f'user_id {user_id}. Task {i} await: {tasks[i]}')
 
     # ----yandex disk api requests----
 
@@ -124,8 +124,8 @@ class YandexDisk:
                                            }) as resp:
                         status = resp.status
                         count += 1
-                        logger.info(f'user_id: {user_id}. Try create dir "{folder_name}" in cloud storage.'
-                                    f' Response code: {str(resp.status)}. Message: {await resp.json()}')
+                        # logger.info(f'user_id: {user_id}. Try create dir "{folder_name}" in cloud storage.'
+                        #            f' Response code: {str(resp.status)}. Message: {await resp.json()}')
                         match status:
                             case 0:
                                 pass
@@ -171,8 +171,8 @@ class YandexDisk:
                                               }) as resp:
                         status = resp.status
                         count += 1
-                        logger.info(f'user_id: {user_id}. Try delete dir "{folder_name}" in cloud storage.'
-                                    f' Response code: {str(resp.status)}. Message: {await resp.json()}')
+                        # logger.info(f'user_id: {user_id}. Try delete dir "{folder_name}" in cloud storage.'
+                        #             f' Response code: {str(resp.status)}. Message: {await resp.json()}')
                 match status:
                     case 200 | 202 | 204:
                         return True
@@ -293,7 +293,7 @@ class YandexDisk:
                                                 'Authorization': f'OAuth {users_db["user"].get(user_id).get("y_api_token")}'
                                             }) as resp:
                         counter += 1
-                        logger.info(f" user_id: {user_id} | album: {subfolder_path} | status: {resp.status}")
+                        # logger.info(f" user_id: {user_id} | album: {subfolder_path} | status: {resp.status}")
                 except ClientConnectorError:
                     await asyncio.sleep(0.07)
                     continue
@@ -314,11 +314,17 @@ class YandexDisk:
                 "ya_upload_completed": False,
             }, pk="user_id")
         start_create_dir = time.perf_counter()
+        logger.info(f'user_id: {user_id}. Try create dir "{folder_name}" in cloud storage.')
         if await self.__request_create_folder(user_id, self.__ROOT_FOLDER, recreate_folder=False):
             if await self.__request_create_folder(user_id, f'{self.__ROOT_FOLDER}/{folder_name}',
                                                   recreate_folder):
                 end_create_dir = time.perf_counter()
                 logger.info(f'user_id: {user_id}. Directory creation was done in '
+                            f'{end_create_dir - start_create_dir:0.4f} seconds')
+                return True
+            else:
+                end_create_dir = time.perf_counter()
+                logger.info(f'user_id: {user_id}. Directory overwrite was done in '
                             f'{end_create_dir - start_create_dir:0.4f} seconds')
                 return True
 

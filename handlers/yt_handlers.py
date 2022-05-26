@@ -31,10 +31,10 @@ async def message_download_yt(message: types.Message, state: FSMContext):
     try:
         await bot.send_message(message.from_user.id,
                                text=f"@{message.from_user.username}\n"
-                                    f"Your download link is {response['url']}?raw")
+                                    f"Ссылка для загрузки {response['url']}?raw")
     except TypeError as te:
         await bot.send_message(message.from_user.id,
                                text=f"@{message.from_user.username}\n"
-                                    f"Your download link is empty")
+                                    f"При получении ссылки возникла ошибка")
         logging.info(te.args)
     os.remove(path_to_file)
