@@ -15,7 +15,7 @@ WEBHOOK_URL = f"{WEBHOOK_HOST}{WEBHOOK_PATH}"
 
 # webserver settings
 WEBAPP_HOST = '0.0.0.0'  # or ip
-WEBAPP_PORT = 80
+WEBAPP_PORT = WEBHOOK_HOST.split(':')[-1]
 
 
 async def on_startup(dispather):

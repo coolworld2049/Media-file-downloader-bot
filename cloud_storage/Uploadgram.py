@@ -5,7 +5,7 @@ from core import logger
 
 class Uploadgram:
     @staticmethod
-    def upload(path_to_file: str):
+    def upload(path_to_file):
         try:
             up_file = UploadgramPyAPI.NewFile(path_to_file)
             response: dict = up_file.upload()

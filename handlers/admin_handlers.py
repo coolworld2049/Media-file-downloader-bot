@@ -22,7 +22,7 @@ async def admin(message: types.Message):
 
 @dp.callback_query_handler(lambda c: c.data == 'statistics')
 async def bot_statistics(callback_query: types.CallbackQuery):
-    path = export_db(callback_query.from_user)
+    path = export_db(callback_query.from_user, int(os.environ["ADMIN_ID"]))
     file = open(path, 'rb')
     await bot.send_document(callback_query.from_user.id, file)
     os.remove(path)

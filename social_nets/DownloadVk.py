@@ -14,7 +14,7 @@ class DownloadVk:
     def __init__(self):
         self.__vk_app_id = 8109852
         self.__vk_api_v = 5.131
-        self.scopes = "photos,docs"
+        self.scopes = "photos,docs,audio"
         self.__redirect_uri = 'https://oauth.vk.com/blank.html'
 
     # ----authorization----
@@ -70,11 +70,21 @@ class DownloadVk:
                     try:
                         if check['error']:
                             logger.info(f"user_id: {user_id}. checkToken: error_msg={check['error_msg']}")
+                            users_db["user"].upsert(
+                                {
+                                    "user_id": user_id,
+                                    "vk_user_authorized": False
+                                }, pk='user_id')
                             return False
                     except KeyError:
                         if check['response']['success'] == 1:
                             logger.info(f"user_id: {user_id}. checkToken: success="
                                         f"{check['response']['success']}")
+                            users_db["user"].upsert(
+                                {
+                                    "user_id": user_id,
+                                    "vk_user_authorized": True
+                                }, pk='user_id')
                             return True
         except KeyError as ke2:
             logger.info(f'user_id: {user_id}. User is not authorized check_token'
@@ -236,10 +246,8 @@ class DownloadVk:
 
     async def __get_photo_id_album_id_controller(self, user_id, offset: int):
         data = await self.request_get_all_photos(user_id, offset=offset, count=200)
-        photo_id_album_id = {}
         try:
-            for item in data["response"]["items"]:
-                photo_id_album_id[item["id"]] = item["album_id"]
+            photo_id_album_id = {item["id"]: item["album_id"] for item in data["response"]["items"]}
             return photo_id_album_id.items()
         except KeyError:
             return data.items()
@@ -247,16 +255,16 @@ class DownloadVk:
     async def __get_photo_id_album_id_worker(self, user_id):
         f_req = await self.request_get_all_photos(user_id)
         tasks = []
-        tasks_per_sec = 3 + 1  # limit 5
+        tasks_per_sec = 3
         nest_asyncio.apply()
         loop = asyncio.get_running_loop()
         for offset in range(0, f_req["response"]["count"], 200):
             tasks.append(loop.create_task(
                 self.__wrapper__(0.05, self.__get_photo_id_album_id_controller(user_id, offset))))
             task_num = offset // 200
-            if ((task_num / (tasks_per_sec - 1)) % 2) == 0:
+            if task_num % tasks_per_sec == 0:
                 logger.info(f'user_id {user_id}. Task {task_num} asyncio.sleep(1.2)')
-                await asyncio.sleep(1.2)
+                await asyncio.sleep(1.5)
                 continue
         for i in range(len(tasks)):
             await tasks[i]
@@ -277,16 +285,16 @@ class DownloadVk:
     async def __get_service_albums_worker(self, user_id, service_album_id: int):
         alb_c = await self.get_album_id(user_id)
         tasks = []
-        tasks_per_sec = 3 + 1  # limit 5
+        tasks_per_sec = 3
         nest_asyncio.apply()
         loop = asyncio.get_running_loop()
         for offset in range(0, len(alb_c), 200):
             tasks.append(loop.create_task(
                 self.__wrapper__(0.05, self.__get_service_albums_controller(user_id, service_album_id, offset))))
             task_num = offset // 200
-            if ((task_num / (tasks_per_sec - 1)) % 2) == 0:
+            if task_num % tasks_per_sec == 0:
                 logger.info(f'user_id {user_id}. Task {task_num} asyncio.sleep(1.2)')
-                await asyncio.sleep(1.2)
+                await asyncio.sleep(1.5)
                 continue
         for i in range(len(tasks)):
             await tasks[i]
@@ -450,6 +458,12 @@ class DownloadVk:
                             {
                                 "user_id": user_id,
                                 "vk_docs_download_completed": True,
+                            }, pk="user_id")
+                        users_db['user'].upsert(
+                            {
+                                "user_id": user_id,
+                                "total_number_downloaded_file":
+                                    users_db["user"].get(user_id).get("total_number_downloaded_file") + count
                             }, pk="user_id")
                 else:
                     logger.info(f'save_docs(user_id: {user_id}). Exception:'

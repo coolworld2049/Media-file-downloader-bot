@@ -1,11 +1,12 @@
 from datetime import datetime
 
 import emoji
+import sqlite_utils
 from aiogram import types, Dispatcher
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
 from core import users_db, logger, dp, bot
-from db.db_mgmt import export_db, __create_user_table, __add_user_to_db, __delete_user_tables
+from db.db_mgmt import export_db, add_user_to_db, delete_user_tables, create_user_table
 
 
 def register_handlers_main(dispatcher: Dispatcher):
@@ -16,18 +17,20 @@ def register_handlers_main(dispatcher: Dispatcher):
 
 @dp.message_handler(commands=['start'])
 async def message_start(message: types.Message):
-    __create_user_table()
-    __add_user_to_db(message.from_user)
-    logger.info(f'user_id:{message.from_user.id} added to db')
-
-    time_diff_visit = \
-        users_db['user'].get(message.from_user.id).get('last_seen') - datetime.timestamp(datetime.now())
-    if abs(time_diff_visit) // 60 >= 120:  # last seen 2h ago
-        export_db(message.from_user)
-        __delete_user_tables(message.from_user)
-        __add_user_to_db(message.from_user)
-        logger.info(f'user_id: {message.from_user.id} db data overwritten because more than 2 hours have\n'
-                    f' passed since the last launch of the bot')
+    create_user_table()
+    try:
+        if users_db['user'].get(message.from_user.id).get('user_id'):
+            time_delta = users_db['user'].get(message.from_user.id).get('last_seen') - \
+                         datetime.timestamp(datetime.now())
+            if time_delta and abs(time_delta) // 60 >= 120:  # last seen 2h ago
+                export_db(message.from_user)
+                delete_user_tables(message.from_user)
+                add_user_to_db(message.from_user)
+                logger.info(f'user_id: {message.from_user.id} db data overwritten because '
+                            f'more than 2 hours have passed since the last launch of the bot')
+    except sqlite_utils.db.NotFoundError:
+        add_user_to_db(message.from_user)
+        logger.info(f'user_id:{message.from_user.id} added to db')
 
     IK_select_source = InlineKeyboardMarkup(row_width=2)
     IK_select_source.add(
@@ -55,4 +58,4 @@ async def message_start_menu(callback_query: types.CallbackQuery):
 @dp.message_handler(commands=['help'])
 async def send_help(message: types.Message):
     await message.answer('/start' + '- выбрать соц. сеть\n'
-                         '/help' + '- список команд')
+                                    '/help' + '- список команд')

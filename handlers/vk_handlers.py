@@ -37,7 +37,7 @@ async def callback_auth_vk(callback_query: types.CallbackQuery):
     else:
         RK_goto_select_album = ReplyKeyboardMarkup(resize_keyboard=True, one_time_keyboard=True)
         RK_goto_select_album.add(KeyboardButton('Далее'))
-        await bot.send_message(callback_query.from_user.id, text=f'Вы авторизованы в Вк!',
+        await bot.send_message(callback_query.from_user.id, text=f'Вы авторизованы в ВК!',
                                reply_markup=RK_goto_select_album)
         users_db[f"{callback_query.from_user.id}_calls"].insert(
             {
@@ -77,7 +77,7 @@ async def message_auth_vk(message: types.Message, state: FSMContext):
         elif users_db['user'].get(message.from_user.id).get('auth_attempts') <= 0:
             await state.finish()
             await message_start(message)
-        else:
+        elif users_db['user'].get(message.from_user.id).get('auth_attempts') >= 0:
             users_db['user'].upsert(
                 {
                     "user_id": message.from_user.id,
@@ -96,7 +96,7 @@ async def message_select_vk_scope(message: types.Message, state: FSMContext):
                                                 callback_data=scopes_list[0]))
         IK_scopes_list.add(InlineKeyboardButton(emoji.emojize(scopes_list[1] + ' :page_facing_up:'),
                                                 callback_data=scopes_list[1]))
-        IK_scopes_list.add(InlineKeyboardButton(emoji.emojize(':left_arrow:') + 'start menu',
+        IK_scopes_list.add(InlineKeyboardButton(emoji.emojize(':left_arrow:') + ' start menu',
                                                 callback_data='start_menu'))
         await bot.send_message(message.from_user.id, 'Выберите что необходимо скачать',
                                reply_markup=IK_scopes_list)
@@ -127,12 +127,12 @@ async def callback_display_albums_list(callback_query: types.CallbackQuery):
                              reply_markup=IK_albums_list)
 
     IK_actions = InlineKeyboardMarkup()
-    IK_actions.add(InlineKeyboardButton(text=emoji.emojize(':star:') + ' Скачать все альбомы',
+    IK_actions.add(InlineKeyboardButton(text=emoji.emojize(':star:') + ' скачать все альбомы',
                                         callback_data='save_all_photos'))
-    IK_actions.add(InlineKeyboardButton(text=emoji.emojize(':left_arrow:') + ' Назад',
+    IK_actions.add(InlineKeyboardButton(text=emoji.emojize(':left_arrow:') + ' назад',
                                         callback_data='back'))
     await bot.send_message(callback_query.from_user.id,
-                           text=f'Также можно скачать все фотографии с аккаунта',
+                           text=f'Также можно скачать все альбомы',
                            reply_markup=IK_actions)
     await MyStates.save_album.set()
 
@@ -151,7 +151,7 @@ async def callback_save_album(callback_query: types.CallbackQuery, state: FSMCon
                 callback_selected_album_id = str(data['callback_data'])
                 await state.finish()
 
-            await bot.send_message(callback_query.from_user.id, text=f'Загрузка альбома из Вк',
+            await bot.send_message(callback_query.from_user.id, text=f'Загрузка альбома из ВК',
                                    reply_markup=ReplyKeyboardRemove())
             # downloading
             start = time.perf_counter()
@@ -188,7 +188,7 @@ async def callback_save_album(callback_query: types.CallbackQuery, state: FSMCon
                     await MyStates.save_album.set()
             else:
                 await bot.send_message(callback_query.from_user.id,
-                                       text='При загрузке альбома из Вк возникла ошибка.')
+                                       text='При загрузке альбома из ВК возникла ошибка.')
                 await MyStates.save_album.set()
 
         elif callback_query.data == 'save_all_photos':
@@ -209,7 +209,7 @@ async def callback_save_all_photo(callback_query: types.CallbackQuery):
     albums_ids = [item['id'] for item in albums['response']['items']]
 
     if count_photos <= limit:
-        await bot.send_message(callback_query.from_user.id, text=f'Загрузка всех фото из Вк',
+        await bot.send_message(callback_query.from_user.id, text=f'Загрузка всех фото из ВК',
                                reply_markup=ReplyKeyboardRemove())
         # download all photos
         await DownloadVk().download_selected_album(user_id, albums_ids)
@@ -249,9 +249,9 @@ async def callback_save_all_photo(callback_query: types.CallbackQuery):
 @dp.callback_query_handler(lambda c: c.data == 'docs')
 async def callback_save_docs(callback_query: types.CallbackQuery):
     user_id = callback_query.from_user.id
-    await bot.send_message(callback_query.from_user.id, text=f'Загрузка документов из Вк')
+    await bot.send_message(callback_query.from_user.id, text=f'Загрузка документов из ВК')
     await DownloadVk().download_docs(callback_query.from_user.id)
-    if users_db[f'{user_id}_docs'].count > 0:
+    if users_db[f'{user_id}_docs'].count < 1:
         await bot.send_message(callback_query.from_user.id, text='На вашем аккаунте нет документов')
     if users_db['user'].get(user_id).get('vk_docs_download_completed'):
         await bot.send_message(callback_query.from_user.id,

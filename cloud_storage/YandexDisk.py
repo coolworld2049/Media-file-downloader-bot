@@ -95,11 +95,11 @@ class YandexDisk:
                           chat_id=user_id):
                 for ch_items in list_of_chunks[i]:
                     tasks.append(loop.create_task(
-                        self.__wrapper(0.03, self.__request_upload_worker(ch_items['url'],
+                        self.__wrapper(0.05, self.__request_upload_worker(ch_items['url'],
                                                                           ch_items['params'],
                                                                           ch_items['data'],
                                                                           ch_items['headers']))))
-                await asyncio.sleep(1.1)
+                await asyncio.sleep(1.2)
                 for k in range(len(tasks)):
                     await tasks[i]
                     # logger.info(f'user_id {user_id}. Task {i} await: {tasks[i]}')
@@ -291,7 +291,7 @@ class YandexDisk:
                                                 'Content-Type': 'application/json',
                                                 'Accept': 'application/json',
                                                 'Authorization': f'OAuth {users_db["user"].get(user_id).get("y_api_token")}'
-                                            }) as resp:
+                                            }):
                         counter += 1
                         # logger.info(f" user_id: {user_id} | album: {subfolder_path} | status: {resp.status}")
                 except ClientConnectorError:
