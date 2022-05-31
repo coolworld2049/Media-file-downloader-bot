@@ -14,21 +14,17 @@ class DownloadVk:
     def __init__(self):
         self.__vk_app_id = 8109852
         self.__vk_api_v = 5.131
-        self.scopes = "photos,docs"
+        self.scopes = "photos,docs,audio"
         self.__redirect_uri = 'https://oauth.vk.com/blank.html'
 
     # ----authorization----
 
-    @abstractmethod
     def link(self):
-        # response_type=code!
         oAuth_link = f"https://oauth.vk.com/authorize?client_id={self.__vk_app_id}&display=page&" \
                      f"__redirect_uri={self.__redirect_uri}" \
                      f"&scope={self.scopes}&revoke=1&response_type=code&v={self.__vk_api_v}"
-
         return oAuth_link
 
-    @abstractmethod
     async def auth(self, user_id, vk_response: str):
         split_link = vk_response.split('#').copy()
         if split_link[0] == self.__redirect_uri:
@@ -70,11 +66,21 @@ class DownloadVk:
                     try:
                         if check['error']:
                             logger.info(f"user_id: {user_id}. checkToken: error_msg={check['error_msg']}")
+                            users_db["user"].upsert(
+                                {
+                                    "user_id": user_id,
+                                    "vk_user_authorized": False
+                                }, pk='user_id')
                             return False
                     except KeyError:
                         if check['response']['success'] == 1:
                             logger.info(f"user_id: {user_id}. checkToken: success="
                                         f"{check['response']['success']}")
+                            users_db["user"].upsert(
+                                {
+                                    "user_id": user_id,
+                                    "vk_user_authorized": True
+                                }, pk='user_id')
                             return True
         except KeyError as ke2:
             logger.info(f'user_id: {user_id}. User is not authorized check_token'
@@ -260,7 +266,6 @@ class DownloadVk:
                 continue
         for i in range(len(tasks)):
             await tasks[i]
-            # logger.info(f'user_id {user_id}. Task {i} await: {tasks[i]}')
         return tasks
 
     async def __get_service_albums_controller(self, user_id, service_album_id: int, offset: int):
@@ -290,7 +295,6 @@ class DownloadVk:
                 continue
         for i in range(len(tasks)):
             await tasks[i]
-            # logger.info(f'user_id {user_id}. Task {i} await: {tasks[i]}')
         return tasks
 
     async def __get_photos_urls(self, user_id, album_title: str, photoIdsOfSelectedAlbum: list):
@@ -308,7 +312,6 @@ class DownloadVk:
                     }
                 ], pk="id", replace=True)
             count += 1
-            # logger.info(item["sizes"][-1]["url"])
         users_db['user'].upsert(
             {
                 "user_id": user_id,
@@ -339,7 +342,6 @@ class DownloadVk:
                         }
                     ], pk="id", replace=True)
                 count += 1
-                # logger.info(item["sizes"][-1]["url"])
         users_db['user'].upsert(
             {
                 "user_id": user_id,
@@ -444,12 +446,18 @@ class DownloadVk:
                                 }
                             ], pk="id", replace=True)
                         count += 1
-                        # logger.info(doc['url'], sep='\n')
                     if users_db[f"{user_id}_docs"].count > 0:
                         users_db['user'].upsert(
                             {
                                 "user_id": user_id,
                                 "vk_docs_download_completed": True,
+                            }, pk="user_id")
+
+                        users_db['user'].upsert(
+                            {
+                                "user_id": user_id,
+                                "total_number_downloaded_file":
+                                    users_db["user"].get(user_id).get("total_number_downloaded_file") + count
                             }, pk="user_id")
                 else:
                     logger.info(f'save_docs(user_id: {user_id}). Exception:'
