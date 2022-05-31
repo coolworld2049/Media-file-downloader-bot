@@ -19,12 +19,16 @@ class DownloadVk:
 
     # ----authorization----
 
+    @abstractmethod
     def link(self):
+        # response_type=code!
         oAuth_link = f"https://oauth.vk.com/authorize?client_id={self.__vk_app_id}&display=page&" \
                      f"__redirect_uri={self.__redirect_uri}" \
                      f"&scope={self.scopes}&revoke=1&response_type=code&v={self.__vk_api_v}"
+
         return oAuth_link
 
+    @abstractmethod
     async def auth(self, user_id, vk_response: str):
         split_link = vk_response.split('#').copy()
         if split_link[0] == self.__redirect_uri:
@@ -242,10 +246,8 @@ class DownloadVk:
 
     async def __get_photo_id_album_id_controller(self, user_id, offset: int):
         data = await self.request_get_all_photos(user_id, offset=offset, count=200)
-        photo_id_album_id = {}
         try:
-            for item in data["response"]["items"]:
-                photo_id_album_id[item["id"]] = item["album_id"]
+            photo_id_album_id = {item["id"]: item["album_id"] for item in data["response"]["items"]}
             return photo_id_album_id.items()
         except KeyError:
             return data.items()
@@ -253,19 +255,20 @@ class DownloadVk:
     async def __get_photo_id_album_id_worker(self, user_id):
         f_req = await self.request_get_all_photos(user_id)
         tasks = []
-        tasks_per_sec = 3 + 1  # limit 5
+        tasks_per_sec = 3
         nest_asyncio.apply()
         loop = asyncio.get_running_loop()
         for offset in range(0, f_req["response"]["count"], 200):
             tasks.append(loop.create_task(
                 self.__wrapper__(0.05, self.__get_photo_id_album_id_controller(user_id, offset))))
             task_num = offset // 200
-            if ((task_num / (tasks_per_sec - 1)) % 2) == 0:
+            if task_num % tasks_per_sec == 0:
                 logger.info(f'user_id {user_id}. Task {task_num} asyncio.sleep(1.2)')
-                await asyncio.sleep(1.2)
+                await asyncio.sleep(1.5)
                 continue
         for i in range(len(tasks)):
             await tasks[i]
+            # logger.info(f'user_id {user_id}. Task {i} await: {tasks[i]}')
         return tasks
 
     async def __get_service_albums_controller(self, user_id, service_album_id: int, offset: int):
@@ -282,19 +285,20 @@ class DownloadVk:
     async def __get_service_albums_worker(self, user_id, service_album_id: int):
         alb_c = await self.get_album_id(user_id)
         tasks = []
-        tasks_per_sec = 3 + 1  # limit 5
+        tasks_per_sec = 3
         nest_asyncio.apply()
         loop = asyncio.get_running_loop()
         for offset in range(0, len(alb_c), 200):
             tasks.append(loop.create_task(
                 self.__wrapper__(0.05, self.__get_service_albums_controller(user_id, service_album_id, offset))))
             task_num = offset // 200
-            if ((task_num / (tasks_per_sec - 1)) % 2) == 0:
+            if task_num % tasks_per_sec == 0:
                 logger.info(f'user_id {user_id}. Task {task_num} asyncio.sleep(1.2)')
-                await asyncio.sleep(1.2)
+                await asyncio.sleep(1.5)
                 continue
         for i in range(len(tasks)):
             await tasks[i]
+            # logger.info(f'user_id {user_id}. Task {i} await: {tasks[i]}')
         return tasks
 
     async def __get_photos_urls(self, user_id, album_title: str, photoIdsOfSelectedAlbum: list):
@@ -312,6 +316,7 @@ class DownloadVk:
                     }
                 ], pk="id", replace=True)
             count += 1
+            # logger.info(item["sizes"][-1]["url"])
         users_db['user'].upsert(
             {
                 "user_id": user_id,
@@ -342,6 +347,7 @@ class DownloadVk:
                         }
                     ], pk="id", replace=True)
                 count += 1
+                # logger.info(item["sizes"][-1]["url"])
         users_db['user'].upsert(
             {
                 "user_id": user_id,
@@ -446,13 +452,13 @@ class DownloadVk:
                                 }
                             ], pk="id", replace=True)
                         count += 1
+                        # logger.info(doc['url'], sep='\n')
                     if users_db[f"{user_id}_docs"].count > 0:
                         users_db['user'].upsert(
                             {
                                 "user_id": user_id,
                                 "vk_docs_download_completed": True,
                             }, pk="user_id")
-
                         users_db['user'].upsert(
                             {
                                 "user_id": user_id,

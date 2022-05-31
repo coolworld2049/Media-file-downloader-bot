@@ -1,6 +1,7 @@
 import asyncio
 import os
 import time
+from abc import abstractmethod
 from typing import TextIO
 
 import nest_asyncio
@@ -13,25 +14,27 @@ from core import users_db, logger
 class YandexDisk:
     def __init__(self):
         self.__RESOURCES_URL = 'https://cloud-api.yandex.net/v1/disk/resources'
-        self.__ya_client_id = os.environ.get('ya_client_id')
-        self._ROOT_FOLDER = 'Saved from tg'
+        self.__ROOT_FOLDER = 'Saved from tg'
 
     # ----authorization---
 
     @staticmethod
+    @abstractmethod
     def link():
         link = f'https://oauth.yandex.ru/authorize?&response_type=code' \
                f'&client_id={os.environ.get("ya_client_id")}'
         return link
 
-    async def auth(self, user_id, ya_token: str):
+    @staticmethod
+    @abstractmethod
+    async def auth(user_id, ya_token: str):
         if len(ya_token) == 7:
             async with clientSession() as session:
                 async with session.post('https://oauth.yandex.ru/token',
                                         data={
                                             'grant_type': 'authorization_code',
                                             'code': ya_token,
-                                            'client_id': self.__ya_client_id,
+                                            'client_id': os.environ.get('ya_client_id'),
                                             'client_secret': os.environ.get('ya_client_secret')
                                         }) as resp:
                     get_access_token = await resp.json()
@@ -62,7 +65,7 @@ class YandexDisk:
 
     async def __multitask_post_requests(self, user_id: int, data: dict, folder_name: str, overwrite: bool = False):
         counter = 0
-        subfolder_path = f'{self._ROOT_FOLDER}/{folder_name}'
+        subfolder_path = f'{self.__ROOT_FOLDER}/{folder_name}'
         requests_dict = {}
         for url, ext in data.items():
             requests_dict[counter] = {
@@ -92,13 +95,14 @@ class YandexDisk:
                           chat_id=user_id):
                 for ch_items in list_of_chunks[i]:
                     tasks.append(loop.create_task(
-                        self.__wrapper(0.03, self.__request_upload_worker(ch_items['url'],
+                        self.__wrapper(0.05, self.__request_upload_worker(ch_items['url'],
                                                                           ch_items['params'],
                                                                           ch_items['data'],
                                                                           ch_items['headers']))))
-                await asyncio.sleep(1.1)
+                await asyncio.sleep(1.2)
                 for k in range(len(tasks)):
                     await tasks[i]
+                    # logger.info(f'user_id {user_id}. Task {i} await: {tasks[i]}')
 
     # ----yandex disk api requests----
 
@@ -120,6 +124,8 @@ class YandexDisk:
                                            }) as resp:
                         status = resp.status
                         count += 1
+                        # logger.info(f'user_id: {user_id}. Try create dir "{folder_name}" in cloud storage.'
+                        #            f' Response code: {str(resp.status)}. Message: {await resp.json()}')
                         match status:
                             case 0:
                                 pass
@@ -130,10 +136,10 @@ class YandexDisk:
                             case 429:
                                 await asyncio.sleep(0.05)
                             case 404:
-                                await self.__request_create_folder(user_id, self._ROOT_FOLDER,
+                                await self.__request_create_folder(user_id, self.__ROOT_FOLDER,
                                                                    recreate_folder)
                             case 409:
-                                if folder_name == self._ROOT_FOLDER:
+                                if folder_name == self.__ROOT_FOLDER:
                                     return True
                                 elif not recreate_folder:
                                     return True
@@ -165,6 +171,8 @@ class YandexDisk:
                                               }) as resp:
                         status = resp.status
                         count += 1
+                        # logger.info(f'user_id: {user_id}. Try delete dir "{folder_name}" in cloud storage.'
+                        #             f' Response code: {str(resp.status)}. Message: {await resp.json()}')
                 match status:
                     case 200 | 202 | 204:
                         return True
@@ -183,7 +191,7 @@ class YandexDisk:
                 async with clientSession() as session:
                     async with session.put(f"{self.__RESOURCES_URL}/publish",
                                            params={
-                                               'path': f"{self._ROOT_FOLDER}/{folder_name}"
+                                               'path': f"{self.__ROOT_FOLDER}/{folder_name}"
                                            },
                                            data=None,
                                            headers={
@@ -191,7 +199,7 @@ class YandexDisk:
                                                'Accept': 'application/json',
                                                'Authorization': f'OAuth {users_db["user"].get(user_id).get("y_api_token")}'
                                            }) as put_resp:
-                        logger.info(f'user_id: {user_id}. Publish folder: {self._ROOT_FOLDER}/{folder_name}.'
+                        logger.info(f'user_id: {user_id}. Publish folder: {self.__ROOT_FOLDER}/{folder_name}.'
                                     f' Response: {put_resp.status}')
 
             except KeyError as ke:
@@ -213,7 +221,7 @@ class YandexDisk:
         async with clientSession() as session:
             async with session.get(f"{self.__RESOURCES_URL}/public",
                                    params={
-                                       'path': f"{self._ROOT_FOLDER}/{folder_name}",
+                                       'path': f"{self.__ROOT_FOLDER}/{folder_name}",
                                        'type': 'dir',
                                        'preview_crop': 'true'
                                    },
@@ -222,7 +230,7 @@ class YandexDisk:
                                        'Accept': 'application/json',
                                        'Authorization': f'OAuth {users_db["user"].get(user_id).get("y_api_token")}'
                                    }) as resp:
-                logger.info(f'user_id: {user_id}. Get published folder: {self._ROOT_FOLDER}/{folder_name}.'
+                logger.info(f'user_id: {user_id}. Get published folder: {self.__ROOT_FOLDER}/{folder_name}.'
                             f' Response: {resp.status}')
                 if resp.status == 200:
                     return await resp.json()
@@ -237,14 +245,14 @@ class YandexDisk:
                 async with clientSession() as session:
                     async with session.get(f"{self.__RESOURCES_URL}/download",
                                            params={
-                                               'path': f"{self._ROOT_FOLDER}/{folder_name}/{file}{ext}"
+                                               'path': f"{self.__ROOT_FOLDER}/{folder_name}/{file}{ext}"
                                            },
                                            headers={
                                                'Content-Type': 'application/json',
                                                'Accept': 'application/json',
                                                'Authorization': f'OAuth {users_db["user"].get(user_id).get("y_api_token")}'
                                            }) as resp:
-                        logger.info(f'user_id: {user_id}. Download folder: {self._ROOT_FOLDER}/{folder_name}.'
+                        logger.info(f'user_id: {user_id}. Download folder: {self.__ROOT_FOLDER}/{folder_name}.'
                                     f' Response: {resp.status}')
 
             except KeyError as ke:
@@ -266,7 +274,7 @@ class YandexDisk:
 
     async def request_upload_file(self, user_id: int, data: dict, folder_name: str, overwrite: bool = False):
         counter = 0
-        subfolder_path = f'{self._ROOT_FOLDER}/{folder_name}'
+        subfolder_path = f'{self.__ROOT_FOLDER}/{folder_name}'
         mininterval = len(data) / 1000
         async with clientSession() as session:
             async for url, ext in tqdm(data.items(), mininterval=mininterval, token=os.environ.get("BOT_TOKEN"),
@@ -285,6 +293,7 @@ class YandexDisk:
                                                 'Authorization': f'OAuth {users_db["user"].get(user_id).get("y_api_token")}'
                                             }):
                         counter += 1
+                        # logger.info(f" user_id: {user_id} | album: {subfolder_path} | status: {resp.status}")
                 except ClientConnectorError:
                     await asyncio.sleep(0.07)
                     continue
@@ -306,8 +315,8 @@ class YandexDisk:
             }, pk="user_id")
         start_create_dir = time.perf_counter()
         logger.info(f'user_id: {user_id}. Try create dir "{folder_name}" in cloud storage.')
-        if await self.__request_create_folder(user_id, self._ROOT_FOLDER, recreate_folder=False):
-            if await self.__request_create_folder(user_id, f'{self._ROOT_FOLDER}/{folder_name}',
+        if await self.__request_create_folder(user_id, self.__ROOT_FOLDER, recreate_folder=False):
+            if await self.__request_create_folder(user_id, f'{self.__ROOT_FOLDER}/{folder_name}',
                                                   recreate_folder):
                 end_create_dir = time.perf_counter()
                 logger.info(f'user_id: {user_id}. Directory creation was done in '

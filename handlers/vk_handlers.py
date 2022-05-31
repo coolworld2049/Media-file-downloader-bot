@@ -251,7 +251,7 @@ async def callback_save_docs(callback_query: types.CallbackQuery):
     user_id = callback_query.from_user.id
     await bot.send_message(callback_query.from_user.id, text=f'Загрузка документов из ВК')
     await DownloadVk().download_docs(callback_query.from_user.id)
-    if users_db[f'{user_id}_docs'].count > 0:
+    if users_db[f'{user_id}_docs'].count < 1:
         await bot.send_message(callback_query.from_user.id, text='На вашем аккаунте нет документов')
     if users_db['user'].get(user_id).get('vk_docs_download_completed'):
         await bot.send_message(callback_query.from_user.id,
