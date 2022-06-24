@@ -4,7 +4,7 @@ import emoji
 from aiogram import types, Dispatcher
 from aiogram.dispatcher import FSMContext
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardMarkup, KeyboardButton, \
-    ReplyKeyboardRemove
+    ReplyKeyboardRemove, LoginUrl
 
 from cloud_storage.YandexDisk import YandexDisk
 from core import users_db, MyStates, logger, dp, bot
@@ -26,7 +26,7 @@ async def callback_auth_vk(callback_query: types.CallbackQuery):
     if not users_db['user'].get(callback_query.from_user.id).get('vk_user_authorized') \
             or not await DownloadVk().check_token(callback_query.from_user.id):
         IK_button_vk = InlineKeyboardMarkup()
-        IK_button_vk.add(InlineKeyboardButton('Авторизация в VK', url=DownloadVk().link()))
+        IK_button_vk.add(InlineKeyboardButton('Авторизация в VK', url=DownloadVk().oauth_link))
         await bot.send_message(callback_query.from_user.id,
                                text=f'Для загрузки фото и документов из вашего аккаунта'
                                     f' необходима авторизация. Нажмите на кнопку и перешлите'

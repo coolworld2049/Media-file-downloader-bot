@@ -16,20 +16,13 @@ class DownloadVk:
         self.__vk_api_v = 5.131
         self.scopes = "photos,docs,audio"
         self.__redirect_uri = 'https://oauth.vk.com/blank.html'
+        self.oauth_link = f"https://oauth.vk.com/authorize?client_id={self.__vk_app_id}&display=page&" \
+                          f"__redirect_uri={self.__redirect_uri}" \
+                          f"&scope={self.scopes}&revoke=1&response_type=code&v={self.__vk_api_v}"
 
     # ----authorization----
 
-    @abstractmethod
-    def link(self):
-        # response_type=code!
-        oAuth_link = f"https://oauth.vk.com/authorize?client_id={self.__vk_app_id}&display=page&" \
-                     f"__redirect_uri={self.__redirect_uri}" \
-                     f"&scope={self.scopes}&revoke=1&response_type=code&v={self.__vk_api_v}"
-
-        return oAuth_link
-
-    @abstractmethod
-    async def auth(self, user_id, vk_response: str):
+    async def auth(self, user_id, vk_response):
         split_link = vk_response.split('#').copy()
         if split_link[0] == self.__redirect_uri:
             code = split_link[1].split('=')[-1:][0]

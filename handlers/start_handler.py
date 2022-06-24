@@ -51,7 +51,7 @@ async def message_start_menu(callback_query: types.CallbackQuery):
         InlineKeyboardButton(text=emoji.emojize(':globe_with_meridians: Загрузить из Youtube'),
                              callback_data='button_video_yt'))
     await bot.send_message(callback_query.from_user.id,
-                           text=f'Привет {callback_query.from_user.first_name}!',
+                           text=f'Меню',
                            reply_markup=IK_select_source)
 
 

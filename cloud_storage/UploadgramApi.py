@@ -1,13 +1,15 @@
+from pathlib import Path
+
 import UploadgramPyAPI
 
 from core import logger
 
 
-class Uploadgram:
+class UploadgramApi:
     @staticmethod
-    def upload(path_to_file):
+    def upload(path: Path):
         try:
-            up_file = UploadgramPyAPI.NewFile(path_to_file)
+            up_file = UploadgramPyAPI.NewFile(path)
             response: dict = up_file.upload()
             logger.info(response)
             return response

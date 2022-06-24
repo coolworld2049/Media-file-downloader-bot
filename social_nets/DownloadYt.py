@@ -1,25 +1,53 @@
 import asyncio
 import logging
+from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 
-from asynccpu import ProcessTaskPoolExecutor
 from yt_dlp import YoutubeDL
 
 
 class DownloadYt:
-    def __init__(self):
+    def __init__(self, user_id: int, url: str):
+        self.user_id = user_id
+        self.source_url = url
         self.file_path = "temp/member videos"
-        self.ext = '.mp4'
+        self.user_dir = f'{self.file_path}/{self.user_id}'
+        self._ydl_opts = {'outtmpl': f'{self.file_path}/{self.user_id}/%(id)s.%(ext)s'}
+        self.info = YoutubeDL(self._ydl_opts).extract_info(self.source_url, download=False)
 
-    async def download_video_worker(self, user_id: int, url: str):
-        yt_dlp = YoutubeDL({'outtmpl': f'{self.file_path}/{user_id}/%(title)s{self.ext}'})
-        info = yt_dlp.extract_info(url, download=False)
-        logging.info(f'user_id: {user_id} download_video_worker(user_id, url:{url}).'
-                     f' Video: {info["title"]}')
-        yt_dlp.download([url])
-        return Path(f'{self.file_path}/{user_id}/{info["title"]}{self.ext}')
+    def download_video_worker(self):
+        with YoutubeDL(self._ydl_opts) as ydl:
+            ydl.download([self.source_url])
+            return Path(f'{self.user_dir}/{self.info["id"]}.mp4') if self.info["id"] else None
 
-    async def download_video_controller(self, user_id, url):
-        with ProcessTaskPoolExecutor(max_workers=3, cancel_tasks_when_shutdown=True) as executor:
-            awaitable = executor.create_process_task(self.download_video_worker, user_id, url)
-            return await asyncio.gather(awaitable)
+    def download_audio_worker(self):
+        ydl_opts = \
+            {
+                'outtmpl': self._ydl_opts['outtmpl'],
+                'format': 'm4a/bestaudio/best',
+                'postprocessors': [{'key': 'FFmpegExtractAudio', 'preferredcodec': 'm4a'}]
+            }
+        with YoutubeDL(ydl_opts) as ydl:
+            ydl.download([self.source_url])
+            return Path(f'{self.user_dir}/{self.info["id"]}.m4a') if self.info["id"] else None
+
+    async def common_controller(self, func):
+        try:
+            loop = asyncio.get_running_loop()
+            with ProcessPoolExecutor() as pool:
+                awt = await loop.run_in_executor(pool, func)
+                logging.info(f'user_id: {self.user_id} function_coroutine: '
+                             f'{func.__name__},'
+                             f' args: {self.user_id}, {self.source_url}. Task done')
+                return awt
+        except Exception as e:
+            logging.warning(f'user_id: {self.user_id} function_coroutine: {func.__name__}.'
+                            f' Exception: {e.args}')
+            return f'user_id: {self.user_id} function_coroutine: {func.__name__}.' \
+                   f' Exception: {e.args}'
+
+    async def download_video(self):
+        return await self.common_controller(self.download_video_worker)
+
+    async def download_audio(self):
+        return await self.common_controller(self.download_audio_worker)

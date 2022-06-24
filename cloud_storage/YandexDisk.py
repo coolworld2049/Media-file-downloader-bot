@@ -1,14 +1,12 @@
 import asyncio
 import os
 import time
-from abc import abstractmethod
-from typing import TextIO
 
 import nest_asyncio
 from aiohttp import ClientSession as clientSession, ClientConnectorError
 from tqdm.contrib.telegram import tqdm
 
-from core import users_db, logger
+from core import users_db, logger, bot
 
 
 class YandexDisk:
@@ -19,14 +17,12 @@ class YandexDisk:
     # ----authorization---
 
     @staticmethod
-    @abstractmethod
     def link():
         link = f'https://oauth.yandex.ru/authorize?&response_type=code' \
                f'&client_id={os.environ.get("ya_client_id")}'
         return link
 
     @staticmethod
-    @abstractmethod
     async def auth(user_id, ya_token: str):
         if len(ya_token) == 7:
             async with clientSession() as session:
@@ -308,6 +304,7 @@ class YandexDisk:
         return counter
 
     async def __create_directory(self, user_id, folder_name, recreate_folder):
+        await bot.send_message(user_id, text=f'Создание папки "{folder_name}"')
         users_db['user'].upsert(
             {
                 "user_id": user_id,
@@ -328,7 +325,11 @@ class YandexDisk:
                             f'{end_create_dir - start_create_dir:0.4f} seconds')
                 return True
 
-    async def upload_file(self, user_id: int, data: dict | TextIO, folder_name: str, overwrite: bool = False,
+    @staticmethod
+    async def upload_binary():
+        pass
+
+    async def upload_file(self, user_id: int, data: dict, folder_name: str, overwrite: bool = False,
                           recreate_folder: bool = True):
         start = time.perf_counter()
         if isinstance(data, dict):
@@ -347,8 +348,6 @@ class YandexDisk:
                             "user_id": user_id,
                             "ya_upload_completed": True,
                         }, pk='user_id')
-        elif isinstance(data, TextIO):
-            pass
 
         end = time.perf_counter()
         logger.info(f'upload_file(user_id: {user_id}) was completed in {end - start:0.4f} seconds')
